@@ -1,0 +1,22 @@
+[tax]
+hst_rate = 0.13
+
+[payroll]
+salary = 5000.00
+income_tax = 1000.00
+cpp = 300.00
+ei = 150.00
+
+[accounts]
+names = [
+    "assets:venn-cad",
+    "income",
+    "expenses",
+    "tax:hst-collected",
+    "tax:hst-paid",
+    "liabilities:cra-tax",
+    "liabilities:cra-cpp",
+    "liabilities:cra-ei",
+    "equity:draws",
+    "equity:retained-earnings",
+]

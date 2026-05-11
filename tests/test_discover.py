@@ -17,24 +17,31 @@ def test_handler_in_same_dir():
 
 def test_missing_handler_raises(tmp_path):
     (tmp_path / "orphan.csv").write_text("date\n2026-01-01\n")
-    with pytest.raises(FileNotFoundError, match="Missing handler: expected"):
+    with pytest.raises(ValueError, match="Missing handler: expected"):
         discover(tmp_path)
 
 
 def test_orphan_handler_raises(tmp_path):
     (tmp_path / "stray.py").write_text("def process(rows, config, meta): return iter(())\n")
-    with pytest.raises(FileNotFoundError, match="Orphan handler"):
+    with pytest.raises(ValueError, match="Orphan handler"):
         discover(tmp_path)
 
 
 def test_combined_errors_reported(tmp_path):
     (tmp_path / "nohandler.csv").write_text("date\n2026-01-01\n")
     (tmp_path / "nocsv.py").write_text("def process(rows, config, meta): return iter(())\n")
-    with pytest.raises(FileNotFoundError) as exc_info:
+    with pytest.raises(ValueError) as exc_info:
         discover(tmp_path)
     msg = str(exc_info.value)
     assert "Missing handler" in msg
     assert "Orphan handler" in msg
+
+
+def test_handler_with_syntax_error_raises_clear_error(tmp_path):
+    (tmp_path / "bad.csv").write_text("date\n")
+    (tmp_path / "bad.py").write_text("this is not python!!!\n")
+    with pytest.raises(ValueError, match="Failed to load handler 'bad.py'"):
+        discover(tmp_path)
 
 
 def test_ledger_meta_fields():

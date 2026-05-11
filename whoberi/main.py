@@ -78,7 +78,7 @@ def cmd_accounts(root: Path, _args) -> int:
 
 def cmd_status(root: Path, _args) -> int:
     _, combined, registry, _ = run_pipeline(root)
-    ctx = ReportContext(combined=combined, registry=registry, period=None)
+    ctx = ReportContext(combined=combined, cumulative=combined, registry=registry, period=None)
     for t in AccountType:
         total = ctx.sum_type(t)
         print(f"  {t.value.capitalize():<14}  {ctx.fmt(total)}")
@@ -92,17 +92,8 @@ def cmd_report(root: Path, args) -> int:
     period = getattr(args, "period", None)
     report_type = args.type
 
-    try:
-        custom = load_plugins(root / config["dirs"]["reports"])
-    except ValueError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        return 1
-
-    try:
-        all_reports = build_registry(BUILTIN_REPORTS, custom)
-    except ValueError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        return 1
+    custom = load_plugins(root / config["dirs"]["reports"])
+    all_reports = build_registry(BUILTIN_REPORTS, custom)
 
     if report_type == "list":
         width = max(len(n) for n in all_reports)
@@ -114,11 +105,7 @@ def cmd_report(root: Path, args) -> int:
             print(f"  {name:<{width}}  {rd.description}{src}")
         return 0
 
-    try:
-        ctx = make_context(entries, registry, period)
-    except ValueError as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        return 1
+    ctx = make_context(entries, registry, period)
 
     if report_type == "all":
         for name in sorted(all_reports):
@@ -135,11 +122,7 @@ def cmd_report(root: Path, args) -> int:
         print(f"Unknown report '{report_type}' — available: {available}", file=sys.stderr)
         return 1
 
-    try:
-        print(all_reports[report_type].fn(ctx))
-    except (ValueError, KeyError) as e:
-        print(f"ERROR: {e}", file=sys.stderr)
-        return 1
+    print(all_reports[report_type].fn(ctx))
     return 0
 
 
@@ -214,7 +197,11 @@ def cli() -> None:
         "add": cmd_add,
     }
 
-    sys.exit(commands[args.command](root, args))
+    try:
+        sys.exit(commands[args.command](root, args))
+    except (FileNotFoundError, ValueError, KeyError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

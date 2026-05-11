@@ -17,12 +17,22 @@ def filter_by_period(entries: list[Entry], period: str | None) -> list[Entry]:
     return [e for e in entries if start <= e.date <= end]
 
 
+def filter_as_of(entries: list[Entry], period: str | None) -> list[Entry]:
+    if period is None:
+        return entries
+    _, end = _parse_period(period)
+    return [e for e in entries if e.date <= end]
+
+
 def make_context(
     entries: list[Entry], registry: AccountRegistry, period: str | None
 ) -> ReportContext:
-    filtered = filter_by_period(entries, period)
-    combined = aggregate(filtered)
-    return ReportContext(combined=combined, registry=registry, period=period)
+    return ReportContext(
+        combined=aggregate(filter_by_period(entries, period)),
+        cumulative=aggregate(filter_as_of(entries, period)),
+        registry=registry,
+        period=period,
+    )
 
 
 def _quarter(m: re.Match) -> tuple[date, date]:
@@ -80,11 +90,12 @@ def report_pnl(ctx: ReportContext) -> str:
 
 
 def report_balance(ctx: ReportContext) -> str:
-    assets = ctx.sum_type(AccountType.ASSET)
-    liabilities = ctx.sum_type(AccountType.LIABILITY)
-    equity = ctx.sum_type(AccountType.EQUITY)
-    net_income = ctx.sum_type(AccountType.INCOME) + ctx.sum_type(AccountType.EXPENSE)
-    check = check_balance(ctx.combined)
+    assets = ctx.sum_type_as_of(AccountType.ASSET)
+    liabilities = ctx.sum_type_as_of(AccountType.LIABILITY)
+    equity = ctx.sum_type_as_of(AccountType.EQUITY)
+    net_income = ctx.sum_type_as_of(AccountType.INCOME) + ctx.sum_type_as_of(AccountType.EXPENSE)
+    check = check_balance(ctx.cumulative)
+    title = f"Balance Sheet as of end of {ctx.period}" if ctx.period else "Balance Sheet"
     return ctx.render(
         [
             ("Assets", assets),
@@ -94,7 +105,7 @@ def report_balance(ctx: ReportContext) -> str:
             None,
             ("Check (=0)", check),
         ],
-        title=f"Balance Sheet{ctx.period_suffix}",
+        title=title,
     )
 
 

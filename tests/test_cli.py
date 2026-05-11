@@ -26,6 +26,7 @@ def run(*args: str, root: Path = FIXTURES) -> subprocess.CompletedProcess:
     (["report", "pnl"], "Revenue"),
     (["report", "gst"], "Collected"),
     (["report", "balance"], "$0.00"),
+    (["report", "balance", "--period", "Q1 2026"], "as of end of Q1 2026"),
     (["report", "accounts"], "asset"),
     (["report", "list"], "pnl"),
 ])
@@ -50,3 +51,10 @@ def test_report_unknown_exits_nonzero():
 def test_missing_root_reports_error():
     result = run("validate", root=Path("/nonexistent/path"))
     assert result.returncode != 0
+
+
+def test_missing_config_clean_error(tmp_path):
+    result = run("validate", root=tmp_path)
+    assert result.returncode != 0
+    assert "ERROR: config.toml not found" in result.stderr
+    assert "Traceback" not in result.stderr

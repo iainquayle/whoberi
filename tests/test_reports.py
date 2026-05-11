@@ -1,3 +1,6 @@
+from datetime import date
+from decimal import Decimal
+
 import pytest
 
 from whoberi.reports import filter_by_period, make_context, report_balance, report_pnl
@@ -44,3 +47,19 @@ def test_balance_sheet_date_filter():
     all_time = report_balance(make_context(SAMPLE_ENTRIES, FULL_REGISTRY, None))
     assert "$493.36" in q1
     assert "$493.36" not in all_time
+
+
+def test_balance_uses_cumulative_not_period_filter():
+    pre_period = make_entry({"venn-cad": Decimal("1000"), "fooco": Decimal("-1000")}, d=date(2025, 6, 1))
+    in_period = make_entry({"venn-cad": Decimal("500"), "fooco": Decimal("-500")}, d=date(2026, 1, 15))
+    entries = [pre_period, in_period]
+
+    ctx = make_context(entries, FULL_REGISTRY, "Q1 2026")
+    balance = report_balance(ctx)
+    pnl = report_pnl(ctx)
+
+    # balance uses cumulative: assets reflect both entries
+    assert "$1,500.00" in balance
+    # pnl uses period filter: revenue reflects only in-period entry
+    assert "$500.00" in pnl
+    assert "$1,500.00" not in pnl

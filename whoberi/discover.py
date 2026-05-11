@@ -19,7 +19,8 @@ def discover(ledgers_root: Path) -> list[tuple[Path, ModuleType, LedgerMeta]]:
         if py_path.with_suffix(".csv") not in csvs:
             errors.append(f"Orphan handler: {py_path.relative_to(ledgers_root)} has no matching CSV")
     if errors:
-        raise FileNotFoundError("\n".join(errors))
+        summary = f"{len(errors)} handler pairing error(s):"
+        raise ValueError("\n".join([summary, *(f"  - {e}" for e in errors)]))
     return [
         (
             csv_path,
@@ -48,7 +49,11 @@ def _load_handler(csv_path: Path, ledgers_root: Path) -> ModuleType:
     slug = csv_path.relative_to(ledgers_root).with_suffix("").as_posix().replace("/", "_")
     spec = importlib.util.spec_from_file_location(f"_handler_{slug}", handler_path)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as e:
+        rel = handler_path.relative_to(ledgers_root)
+        raise ValueError(f"Failed to load handler '{rel}': {type(e).__name__}: {e}") from e
     return module
 
 

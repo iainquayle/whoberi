@@ -6,7 +6,8 @@ from whoberi.accounts import AccountRegistry, AccountType
 
 @dataclass(frozen=True)
 class ReportContext:
-    combined: dict[str, Decimal]
+    combined: dict[str, Decimal]      # entries within period (or all if period is None)
+    cumulative: dict[str, Decimal]    # entries with date <= period end (or all if period is None)
     registry: AccountRegistry
     period: str | None
 
@@ -17,6 +18,12 @@ class ReportContext:
     def sum_type(self, t: AccountType) -> Decimal:
         return sum(
             (v for name, v in self.combined.items() if self.registry.type_of(name) == t),
+            Decimal("0"),
+        )
+
+    def sum_type_as_of(self, t: AccountType) -> Decimal:
+        return sum(
+            (v for name, v in self.cumulative.items() if self.registry.type_of(name) == t),
             Decimal("0"),
         )
 

@@ -8,6 +8,8 @@ from whoberi.types import Entry
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+CSV_FIELDS = ["date", "description", "amount"]
+
 
 def make_entry(accounts: dict[str, Decimal], d: date = date(2026, 1, 1), desc: str = "test") -> Entry:
     return Entry(date=d, accounts=accounts, meta={"description": desc})
@@ -29,7 +31,7 @@ FULL_REGISTRY = make_registry(
     liability=["cra-tax", "cra-cpp", "cra-ei", "hst-collected"],
     equity=["draws", "retained-earnings"],
     income=["fooco", "barco"],
-    expense=["meals", "software", "salary", "recurring", "flights"],
+    expense=["meals", "software", "salary", "recurring"],
 )
 
 SAMPLE_ENTRIES = [

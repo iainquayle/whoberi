@@ -39,12 +39,12 @@ whoberi [--root <dir>] <cmd>   # default root = .
 
 | command | effect |
 |---|---|
-| `discover` | list ledgers, resolved handler paths, per-ledger overrides |
+| `discover` | list ledgers and resolved handler paths |
 | `validate` | run pipeline; check zero-sum / account-registry / duplicates; non-zero exit on error |
 | `accounts` | print aggregated balances + global zero-sum |
-| `status` | cash balance (`assets:venn-cad`) + GST/HST owing |
-| `report {pnl\|gst\|payroll\|balance\|annual} [--period Q1\|"Q1 2026"\|2026-01\|2026]` | formatted reports |
-| `add <ledger> <fields...>` | append a row to `<root>/<ledger>.csv` |
+| `status` | print balances by account type + zero-sum check |
+| `report <name\|list\|all> [--period "Q1 2026"\|2026-01\|2026]` | run a report; built-ins: `accounts`, `balance`, `pnl`; use `report list` to see all |
+| `add <ledger> <fields...>` | append a row to `<ledger>.csv` in the ledgers directory |
 
 ## Handler contract
 

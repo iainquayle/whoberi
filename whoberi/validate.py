@@ -7,22 +7,21 @@ from whoberi.types import Entry
 _COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
-def validate_entry(entry: Entry, registry: AccountRegistry | None = None) -> list[str]:
+def validate_entry(entry: Entry, registry: AccountRegistry) -> list[str]:
     errors = []
 
     off = sum(entry.accounts.values())
     if off != 0:
         errors.append(f"{entry.date} '{entry.meta.get('description', '')}': accounts off by {off}")
 
-    if registry is not None:
-        for name in entry.accounts:
-            if not registry.is_known(name):
-                errors.append(f"{entry.date} '{entry.meta.get('description', '')}': unknown account '{name}'")
+    for name in entry.accounts:
+        if not registry.is_known(name):
+            errors.append(f"{entry.date} '{entry.meta.get('description', '')}': unknown account '{name}'")
 
     return errors
 
 
-def validate_entries(entries: list[Entry], registry: AccountRegistry | None = None) -> list[str]:
+def validate_entries(entries: list[Entry], registry: AccountRegistry) -> list[str]:
     errors = []
     for entry in entries:
         errors.extend(validate_entry(entry, registry))

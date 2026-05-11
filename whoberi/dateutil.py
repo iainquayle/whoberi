@@ -22,6 +22,13 @@ def expand_dates(
         raise ValueError(f"Unknown period: {period!r}")
 
 
+def _next_month(year: int, month: int) -> tuple[int, int]:
+    month += 1
+    if month > 12:
+        return year + 1, 1
+    return year, month
+
+
 def _monthly(start: date, cutoff: date) -> Iterator[date]:
     year, month, day = start.year, start.month, start.day
     while True:
@@ -30,10 +37,7 @@ def _monthly(start: date, cutoff: date) -> Iterator[date]:
         if d > cutoff:
             break
         yield d
-        month += 1
-        if month > 12:
-            month = 1
-            year += 1
+        year, month = _next_month(year, month)
 
 
 def _semi_monthly(start: date, cutoff: date) -> Iterator[date]:
@@ -46,10 +50,7 @@ def _semi_monthly(start: date, cutoff: date) -> Iterator[date]:
             if d > cutoff:
                 return
             yield d
-        month += 1
-        if month > 12:
-            month = 1
-            year += 1
+        year, month = _next_month(year, month)
 
 
 def _weekly(start: date, cutoff: date) -> Iterator[date]:

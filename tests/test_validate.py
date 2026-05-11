@@ -6,22 +6,18 @@ from whoberi.validate import validate_column_names, validate_entries, validate_e
 from tests.conftest import FULL_REGISTRY, make_entry
 
 
-# --- Per-entry ---
+# --- Per-entry balance ---
 
-def test_balanced_entry_no_errors():
-    assert validate_entry(make_entry({"a": Decimal("100"), "b": Decimal("-100")})) == []
-
-
-def test_unbalanced_entry_error():
-    errors = validate_entry(make_entry({"a": Decimal("100"), "b": Decimal("-99")}))
-    assert len(errors) == 1
-    assert "off by" in errors[0]
-
-
-def test_sub_penny_imbalance_error():
-    errors = validate_entry(make_entry({"a": Decimal("100.001"), "b": Decimal("-100")}))
-    assert len(errors) == 1
-    assert "off by" in errors[0]
+@pytest.mark.parametrize("accounts,expected_errors,error_substring", [
+    ({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, 0, None),
+    ({"venn-cad": Decimal("100"), "fooco": Decimal("-99")}, 1, "off by"),
+    ({"venn-cad": Decimal("100.001"), "fooco": Decimal("-100")}, 1, "off by"),
+])
+def test_validate_entry_balance(accounts, expected_errors, error_substring):
+    errors = validate_entry(make_entry(accounts), FULL_REGISTRY)
+    assert len(errors) == expected_errors
+    if error_substring:
+        assert any(error_substring in e for e in errors)
 
 
 @pytest.mark.parametrize("accounts,expected_error", [
@@ -40,15 +36,15 @@ def test_account_registry(accounts, expected_error):
 # --- Duplicate detection ---
 
 def test_duplicate_detected():
-    e1 = make_entry({"a": Decimal("100"), "b": Decimal("-100")}, desc="same")
-    e2 = make_entry({"a": Decimal("100"), "b": Decimal("-100")}, desc="same")
-    assert any("Duplicate" in err for err in validate_entries([e1, e2]))
+    e1 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, desc="same")
+    e2 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, desc="same")
+    assert any("Duplicate" in err for err in validate_entries([e1, e2], FULL_REGISTRY))
 
 
 def test_different_entries_not_duplicate():
-    e1 = make_entry({"a": Decimal("100"), "b": Decimal("-100")}, desc="one")
-    e2 = make_entry({"a": Decimal("200"), "b": Decimal("-200")}, desc="two")
-    assert validate_entries([e1, e2]) == []
+    e1 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, desc="one")
+    e2 = make_entry({"venn-cad": Decimal("200"), "fooco": Decimal("-200")}, desc="two")
+    assert validate_entries([e1, e2], FULL_REGISTRY) == []
 
 
 # --- Column name validation ---

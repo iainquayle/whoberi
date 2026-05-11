@@ -6,28 +6,20 @@ from whoberi.aggregate import aggregate, check_balance
 from tests.conftest import make_entry
 
 
-def test_aggregate_sums_accounts():
-    entries = [
-        make_entry({"a": Decimal("100"), "b": Decimal("-100")}),
-        make_entry({"a": Decimal("50"), "b": Decimal("-50")}),
-    ]
-    result = aggregate(entries)
-    assert result["a"] == Decimal("150")
-    assert result["b"] == Decimal("-150")
-
-
-def test_aggregate_empty():
-    assert aggregate([]) == {}
-
-
-def test_aggregate_zero_net_present():
-    entries = [
-        make_entry({"a": Decimal("100")}),
-        make_entry({"a": Decimal("-100")}),
-    ]
-    result = aggregate(entries)
-    assert "a" in result
-    assert result["a"] == Decimal("0")
+@pytest.mark.parametrize("entries,expected", [
+    ([], {}),
+    (
+        [make_entry({"a": Decimal("100"), "b": Decimal("-100")}),
+         make_entry({"a": Decimal("50"), "b": Decimal("-50")})],
+        {"a": Decimal("150"), "b": Decimal("-150")},
+    ),
+    (
+        [make_entry({"a": Decimal("100")}), make_entry({"a": Decimal("-100")})],
+        {"a": Decimal("0")},
+    ),
+])
+def test_aggregate(entries, expected):
+    assert aggregate(entries) == expected
 
 
 @pytest.mark.parametrize("amounts,expected", [

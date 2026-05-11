@@ -11,7 +11,6 @@ class AccountType(StrEnum):
 
 class AccountRegistry:
     def __init__(self, explicit: dict[AccountType, set[str]]):
-        self._explicit = explicit
         self._by_name: dict[str, AccountType] = {
             name: t for t, names in explicit.items() for name in names
         }
@@ -28,12 +27,12 @@ class AccountRegistry:
 def load_registry(config: dict) -> AccountRegistry:
     section = config.get("accounts")
     if not section:
-        valid = sorted(t.value for t in AccountType)
         raise ValueError(
             f"Missing or empty [accounts] section in config.toml — "
-            f"must declare at least one type. Valid types: {valid}"
+            f"must declare at least one type. Valid types: {sorted(t.value for t in AccountType)}"
         )
 
+    valid_types = sorted(t.value for t in AccountType)
     errors: list[str] = []
     seen: dict[str, str] = {}   # name -> first type that claimed it
     explicit: dict[AccountType, set[str]] = {}
@@ -42,8 +41,7 @@ def load_registry(config: dict) -> AccountRegistry:
         try:
             t = AccountType(key)
         except ValueError:
-            valid = sorted(t.value for t in AccountType)
-            errors.append(f"Unknown account type '{key}' in [accounts] — valid types: {valid}")
+            errors.append(f"Unknown account type '{key}' in [accounts] — valid types: {valid_types}")
             continue
         if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
             errors.append(

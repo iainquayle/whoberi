@@ -4,9 +4,7 @@ from pathlib import Path
 import pytest
 
 from whoberi.importer import import_bank_csv
-from tests.conftest import write_csv
-
-_FIELDS = ["date", "description", "amount"]
+from tests.conftest import CSV_FIELDS, write_csv
 
 RULES = {
     "AWS": "expenses/software",
@@ -24,7 +22,7 @@ def tmp_root(tmp_path):
 
 def test_matched_row_appended(tmp_root):
     bank = tmp_root / "bank.csv"
-    write_csv(bank, _FIELDS, [{"date": "2026-01-01", "description": "AWS", "amount": "157.50"}])
+    write_csv(bank, CSV_FIELDS, [{"date": "2026-01-01", "description": "AWS", "amount": "157.50"}])
 
     matched, unmatched = import_bank_csv(bank, RULES, tmp_root)
 
@@ -39,7 +37,7 @@ def test_matched_row_appended(tmp_root):
 
 def test_unmatched_row_returned(tmp_root):
     bank = tmp_root / "bank.csv"
-    write_csv(bank, _FIELDS, [{"date": "2026-01-01", "description": "MYSTERY VENDOR", "amount": "99.00"}])
+    write_csv(bank, CSV_FIELDS, [{"date": "2026-01-01", "description": "MYSTERY VENDOR", "amount": "99.00"}])
 
     matched, unmatched = import_bank_csv(bank, RULES, tmp_root)
 
@@ -51,7 +49,7 @@ def test_unmatched_row_returned(tmp_root):
 def test_duplicate_not_appended(tmp_root):
     bank = tmp_root / "bank.csv"
     row = {"date": "2026-01-01", "description": "AWS", "amount": "157.50"}
-    write_csv(bank, _FIELDS, [row])
+    write_csv(bank, CSV_FIELDS, [row])
 
     import_bank_csv(bank, RULES, tmp_root)
     import_bank_csv(bank, RULES, tmp_root)
@@ -63,7 +61,7 @@ def test_duplicate_not_appended(tmp_root):
 
 def test_case_insensitive_pattern_match(tmp_root):
     bank = tmp_root / "bank.csv"
-    write_csv(bank, _FIELDS, [{"date": "2026-01-01", "description": "aws charges", "amount": "50.00"}])
+    write_csv(bank, CSV_FIELDS, [{"date": "2026-01-01", "description": "aws charges", "amount": "50.00"}])
 
     matched, unmatched = import_bank_csv(bank, RULES, tmp_root)
 
@@ -73,7 +71,7 @@ def test_case_insensitive_pattern_match(tmp_root):
 
 def test_multiple_rows_mixed(tmp_root):
     bank = tmp_root / "bank.csv"
-    write_csv(bank, _FIELDS, [
+    write_csv(bank, CSV_FIELDS, [
         {"date": "2026-01-01", "description": "AWS", "amount": "157.50"},
         {"date": "2026-01-02", "description": "RANDOM CO", "amount": "500.00"},
         {"date": "2026-01-03", "description": "UBER EATS", "amount": "45.00"},

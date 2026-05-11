@@ -2,12 +2,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from whoberi.accounts import AccountRegistry, AccountType
-from whoberi.types import Entry
 
 
 @dataclass(frozen=True)
 class ReportContext:
-    entries: list[Entry]
     combined: dict[str, Decimal]
     registry: AccountRegistry
     period: str | None

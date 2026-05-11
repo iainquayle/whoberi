@@ -8,7 +8,7 @@ asset     = ["venn-cad", "hst-paid"]
 liability = ["cra-tax", "cra-cpp", "cra-ei", "hst-collected"]
 equity    = ["draws", "retained-earnings"]
 income    = ["fooco", "barco"]
-expense   = ["salary", "software", "recurring", "flights"]
+expense   = ["salary", "software", "recurring"]
 
 [consts.tax]
 hst_rate = 0.13

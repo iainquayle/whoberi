@@ -22,7 +22,7 @@ def make_context(
 ) -> ReportContext:
     filtered = filter_by_period(entries, period)
     combined = aggregate(filtered)
-    return ReportContext(entries=filtered, combined=combined, registry=registry, period=period)
+    return ReportContext(combined=combined, registry=registry, period=period)
 
 
 def _quarter(m: re.Match) -> tuple[date, date]:

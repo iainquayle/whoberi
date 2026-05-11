@@ -2,6 +2,11 @@ import pytest
 
 from whoberi.config import load_config
 
+
+def test_missing_config_raises(tmp_path):
+    with pytest.raises(FileNotFoundError, match="config.toml not found"):
+        load_config(tmp_path)
+
 _VALID_DIRS = '[dirs]\nledgers = "books"\nimports = "imports"\nreports = "reports"\n'
 
 

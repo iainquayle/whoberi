@@ -4,6 +4,7 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
+from whoberi.accounts import load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
 from whoberi.discover import discover, read_csv
@@ -15,6 +16,7 @@ from whoberi.validate import validate_entries
 
 def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal]]:
     config = load_config(root)
+    registry = load_registry(config)
     ledgers = discover(root, config)
     entries = []
     for csv_path, handler, meta in ledgers:
@@ -26,7 +28,7 @@ def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal]]:
             entry.meta.setdefault("ledger", ledger_key)
             entries.append(entry)
     combined = aggregate(entries)
-    return entries, combined
+    return entries, combined, registry
 
 
 def cmd_discover(root: Path, _args) -> int:
@@ -43,10 +45,8 @@ def cmd_discover(root: Path, _args) -> int:
 
 
 def cmd_validate(root: Path, _args) -> int:
-    config = load_config(root)
-    entries, _ = run_pipeline(root)
-    account_names = config.get("accounts", {}).get("names")
-    errors = validate_entries(entries, account_names)
+    entries, _, registry = run_pipeline(root)
+    errors = validate_entries(entries, registry)
     if errors:
         for err in errors:
             print(f"ERROR: {err}", file=sys.stderr)
@@ -56,7 +56,7 @@ def cmd_validate(root: Path, _args) -> int:
 
 
 def cmd_accounts(root: Path, _args) -> int:
-    _, combined = run_pipeline(root)
+    _, combined, _ = run_pipeline(root)
     if not combined:
         print("No accounts.")
         return 0
@@ -69,11 +69,11 @@ def cmd_accounts(root: Path, _args) -> int:
 
 
 def cmd_status(root: Path, _args) -> int:
-    _, combined = run_pipeline(root)
+    _, combined, _ = run_pipeline(root)
 
-    cash = combined.get("assets:venn-cad", Decimal("0"))
-    gst_collected = -combined.get("tax:hst-collected", Decimal("0"))
-    gst_paid = combined.get("tax:hst-paid", Decimal("0"))
+    cash = combined.get("venn-cad", Decimal("0"))
+    gst_collected = -combined.get("hst-collected", Decimal("0"))
+    gst_paid = combined.get("hst-paid", Decimal("0"))
     gst_owing = gst_collected - gst_paid
 
     print(f"  Cash (venn-cad):  {cash:>12.2f}")
@@ -82,21 +82,21 @@ def cmd_status(root: Path, _args) -> int:
 
 
 def cmd_report(root: Path, args) -> int:
-    entries, _ = run_pipeline(root)
+    entries, _, registry = run_pipeline(root)
     period = getattr(args, "period", None)
 
     report_type = args.type
     if report_type == "pnl":
-        print(report_pnl(entries, period))
+        print(report_pnl(entries, registry, period))
     elif report_type == "gst":
-        print(report_gst(entries, period))
+        print(report_gst(entries, registry, period))
     elif report_type == "payroll":
-        print(report_payroll(entries, period))
+        print(report_payroll(entries, registry, period))
     elif report_type == "balance":
-        print(report_balance(entries, period))
+        print(report_balance(entries, registry, period))
     elif report_type == "annual":
         for fn in (report_pnl, report_gst, report_payroll, report_balance):
-            print(fn(entries, period))
+            print(fn(entries, registry, period))
             print()
     else:
         print(f"Unknown report type: {report_type}", file=sys.stderr)

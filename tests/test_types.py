@@ -6,7 +6,7 @@ from tests.conftest import make_entry
 
 
 @pytest.mark.parametrize("accounts", [
-    {"assets:bank": Decimal("100"), "income:foo": Decimal("-100")},
+    {"bank": Decimal("100"), "revenue": Decimal("-100")},
     {"a": Decimal("50"), "b": Decimal("-30"), "c": Decimal("-20")},
     {"x": Decimal("0")},
 ])
@@ -15,7 +15,7 @@ def test_entry_balanced(accounts):
 
 
 @pytest.mark.parametrize("accounts", [
-    {"assets:bank": Decimal("100"), "income:foo": Decimal("-99")},
+    {"bank": Decimal("100"), "revenue": Decimal("-99")},
     {"a": Decimal("0.01")},
 ])
 def test_entry_unbalanced(accounts):

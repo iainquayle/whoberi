@@ -55,7 +55,8 @@ def process(rows: list[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]
 ```
 
 - `Entry(date, accounts: dict[str, Decimal])` — `accounts` must sum to zero (double-entry invariant).
-- Account names: colon-separated, hyphen-segmented — e.g. `assets:venn-cad`, `tax:hst-collected`.
+- Account names: bare hyphen-segmented strings — e.g. `venn-cad`, `hst-collected`. No colon prefix. Type comes from the `[accounts]` registry in `config.toml`.
+- Every account name emitted must appear in `[accounts]`. Unknown names raise `unknown account '<name>'` at validate time. There are no wildcards or defaults — every account must be enumerated.
 - Sign: `+` debit, `−` credit.
 - Reference implementations: `tests/fixtures/`.
 
@@ -72,7 +73,12 @@ cpp = 300.00
 ei = 150.00
 
 [accounts]
-names = ["assets:venn-cad", "income", "expenses", ...]   # bare name = prefix match
+asset     = ["venn-cad"]
+liability = ["cra-tax", "cra-cpp", "cra-ei"]
+equity    = ["draws", "retained-earnings"]
+tax       = ["hst-collected", "hst-paid"]
+income    = ["fooco", "barco"]
+expense   = ["salary", "software", "recurring"]
 
 as_of = "2026-01-01"                                     # optional; pins "today" for recurring
 import_rules = {"ACME CORP" = "income/acme"}             # used by importer.py (library only)

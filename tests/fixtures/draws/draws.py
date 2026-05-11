@@ -16,8 +16,8 @@ def _row_to_entry(row: dict) -> Entry:
     return Entry(
         date=entry_date,
         accounts={
-            "equity:draws": amount,
-            "assets:venn-cad": -amount,
+            "draws": amount,
+            "venn-cad": -amount,
         },
         meta={"description": "Shareholder draw"},
     )

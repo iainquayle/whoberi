@@ -21,9 +21,9 @@ def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
     return Entry(
         date=entry_date,
         accounts={
-            f"expenses:{meta.name}": pretax,
-            "tax:hst-paid": hst,
-            "assets:venn-cad": -total,
+            meta.name: pretax,
+            "hst-paid": hst,
+            "venn-cad": -total,
         },
         meta={"description": description},
     )

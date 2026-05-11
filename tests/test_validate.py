@@ -2,18 +2,19 @@ from decimal import Decimal
 
 import pytest
 
+from whoberi.accounts import AccountRegistry, AccountType
 from whoberi.validate import validate_column_names, validate_entries, validate_entry
 from tests.conftest import make_entry
 
-REGISTRY = [
-    "assets:venn-cad",
-    "income",
-    "expenses",
-    "tax:hst-collected",
-    "tax:hst-paid",
-    "liabilities:cra-tax",
-    "equity:draws",
-]
+
+def _registry(**kwargs) -> AccountRegistry:
+    return AccountRegistry({AccountType(k): set(v) for k, v in kwargs.items()})
+
+
+REGISTRY = _registry(
+    asset=["venn-cad", "hst-paid"],
+    expense=["meals", "software"],
+)
 
 
 # --- Per-entry ---
@@ -29,9 +30,9 @@ def test_unbalanced_entry_error():
 
 
 @pytest.mark.parametrize("accounts,expected_error", [
-    ({"assets:venn-cad": Decimal("100"), "assets:unknown": Decimal("-100")}, "unknown account"),
-    ({"expenses:meals": Decimal("50"), "assets:venn-cad": Decimal("-50")}, None),
-    ({"tax:hst-paid": Decimal("10"), "assets:venn-cad": Decimal("-10")}, None),
+    ({"venn-cad": Decimal("100"), "unknown-acct": Decimal("-100")}, "unknown account"),
+    ({"meals": Decimal("50"), "venn-cad": Decimal("-50")}, None),
+    ({"hst-paid": Decimal("10"), "venn-cad": Decimal("-10")}, None),
 ])
 def test_account_registry(accounts, expected_error):
     errors = validate_entry(make_entry(accounts), REGISTRY)

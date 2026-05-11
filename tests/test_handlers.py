@@ -44,9 +44,9 @@ def test_expense_handler_splits_hst(amount, expected_pretax, expected_hst):
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
-    assert e.accounts["expenses:software"] == expected_pretax
-    assert e.accounts["tax:hst-paid"] == expected_hst
-    assert e.accounts["assets:venn-cad"] == -Decimal(amount)
+    assert e.accounts["software"] == expected_pretax
+    assert e.accounts["hst-paid"] == expected_hst
+    assert e.accounts["venn-cad"] == -Decimal(amount)
 
 
 # --- Income handler ---
@@ -58,9 +58,9 @@ def test_income_handler_with_tax():
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
-    assert e.accounts["assets:venn-cad"] == Decimal("5250.00")
-    assert "tax:hst-collected" in e.accounts
-    assert e.accounts["tax:hst-collected"] < 0
+    assert e.accounts["venn-cad"] == Decimal("5250.00")
+    assert "hst-collected" in e.accounts
+    assert e.accounts["hst-collected"] < 0
 
 
 def test_income_handler_no_tax():
@@ -70,8 +70,8 @@ def test_income_handler_no_tax():
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
-    assert "tax:hst-collected" not in e.accounts
-    assert e.accounts["income:barco"] == -Decimal("3000.00")
+    assert "hst-collected" not in e.accounts
+    assert e.accounts["barco"] == -Decimal("3000.00")
 
 
 # --- Payroll handler ---
@@ -83,11 +83,11 @@ def test_payroll_handler():
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
-    assert e.accounts["expenses:salary"] == Decimal("5000")
-    assert e.accounts["liabilities:cra-tax"] == -Decimal("1000")
-    assert e.accounts["liabilities:cra-cpp"] == -Decimal("300")
-    assert e.accounts["liabilities:cra-ei"] == -Decimal("150")
-    assert e.accounts["assets:venn-cad"] == -Decimal("3550")
+    assert e.accounts["salary"] == Decimal("5000")
+    assert e.accounts["cra-tax"] == -Decimal("1000")
+    assert e.accounts["cra-cpp"] == -Decimal("300")
+    assert e.accounts["cra-ei"] == -Decimal("150")
+    assert e.accounts["venn-cad"] == -Decimal("3550")
 
 
 # --- Draws handler ---
@@ -99,8 +99,8 @@ def test_draws_handler():
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
-    assert e.accounts["equity:draws"] == Decimal("3000.00")
-    assert e.accounts["assets:venn-cad"] == -Decimal("3000.00")
+    assert e.accounts["draws"] == Decimal("3000.00")
+    assert e.accounts["venn-cad"] == -Decimal("3000.00")
 
 
 # --- Recurring expense handler ---
@@ -125,5 +125,5 @@ def test_recurring_expense_handler_expands_dates(rows, config_extra, expected_da
     entries = list(handler.process(iter(rows), config, make_meta("recurring", "expenses")))
     assert [e.date for e in entries] == expected_dates
     assert all(e.balanced for e in entries)
-    assert all("expenses:recurring" in e.accounts for e in entries)
-    assert all("tax:hst-paid" in e.accounts for e in entries)
+    assert all("recurring" in e.accounts for e in entries)
+    assert all("hst-paid" in e.accounts for e in entries)

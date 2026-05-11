@@ -21,7 +21,7 @@ def run(*args: str, root: Path = FIXTURES) -> subprocess.CompletedProcess:
 @pytest.mark.parametrize("args,expected", [
     (["discover"], "software"),
     (["validate"], "OK"),
-    (["accounts"], "assets:venn-cad"),
+    (["accounts"], "venn-cad"),
     (["status"], "Cash"),
     (["report", "pnl"], "Revenue"),
     (["report", "gst"], "Collected"),

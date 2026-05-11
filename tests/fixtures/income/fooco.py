@@ -20,9 +20,9 @@ def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
     return Entry(
         date=entry_date,
         accounts={
-            "assets:venn-cad": total,
-            f"income:{meta.name}": -revenue,
-            "tax:hst-collected": -hst,
+            "venn-cad": total,
+            meta.name: -revenue,
+            "hst-collected": -hst,
         },
         meta={"description": description},
     )

@@ -1,50 +1,38 @@
 import re
 from decimal import Decimal
 
+from whoberi.accounts import AccountRegistry
 from whoberi.hashing import row_hash
 from whoberi.types import Entry
 
 _COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
-def validate_entry(entry: Entry, account_names: list[str] | None = None) -> list[str]:
+def validate_entry(entry: Entry, registry: AccountRegistry | None = None) -> list[str]:
     errors = []
 
     if not entry.balanced:
         off = sum(entry.accounts.values())
         errors.append(f"{entry.date} '{entry.meta.get('description', '')}': accounts off by {off}")
 
-    if account_names is not None:
+    if registry is not None:
         for name in entry.accounts:
-            if not _account_allowed(name, account_names):
+            if not registry.is_known(name):
                 errors.append(f"{entry.date} '{entry.meta.get('description', '')}': unknown account '{name}'")
 
     return errors
 
 
-def validate_entries(entries: list[Entry], account_names: list[str] | None = None) -> list[str]:
+def validate_entries(entries: list[Entry], registry: AccountRegistry | None = None) -> list[str]:
     errors = []
     for entry in entries:
-        errors.extend(validate_entry(entry, account_names))
+        errors.extend(validate_entry(entry, registry))
     errors.extend(_detect_duplicates(entries))
     return errors
 
 
 def validate_column_names(headers: list[str], pattern: re.Pattern = _COLUMN_NAME_RE) -> list[str]:
-    """Return list of invalid column names."""
     return [h for h in headers if not pattern.match(h)]
-
-
-def _account_allowed(name: str, registry: list[str]) -> bool:
-    for entry in registry:
-        if entry.endswith(":") or ":" not in entry:
-            # prefix match: "expenses" matches "expenses:software"
-            if name == entry or name.startswith(entry.rstrip(":") + ":"):
-                return True
-        else:
-            if name == entry:
-                return True
-    return False
 
 
 def _detect_duplicates(entries: list[Entry]) -> list[str]:

@@ -22,11 +22,11 @@ def _row_to_entry(row: dict, salary: Decimal, income_tax: Decimal, cpp: Decimal,
     return Entry(
         date=entry_date,
         accounts={
-            "expenses:salary": salary,
-            "liabilities:cra-tax": -income_tax,
-            "liabilities:cra-cpp": -cpp,
-            "liabilities:cra-ei": -ei,
-            "assets:venn-cad": -net,
+            "salary": salary,
+            "cra-tax": -income_tax,
+            "cra-cpp": -cpp,
+            "cra-ei": -ei,
+            "venn-cad": -net,
         },
         meta={"description": f"Payroll {entry_date}"},
     )

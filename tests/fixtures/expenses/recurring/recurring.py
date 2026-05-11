@@ -29,9 +29,9 @@ def _expand_row(row: dict, config: dict, as_of: Date, meta: LedgerMeta) -> Itera
         lambda d: Entry(
             date=d,
             accounts={
-                f"expenses:{meta.name}": pretax,
-                "tax:hst-paid": hst,
-                "assets:venn-cad": -total,
+                meta.name: pretax,
+                "hst-paid": hst,
+                "venn-cad": -total,
             },
             meta={"description": description},
         ),

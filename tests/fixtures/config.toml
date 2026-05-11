@@ -8,15 +8,8 @@ cpp = 300.00
 ei = 150.00
 
 [accounts]
-names = [
-    "assets:venn-cad",
-    "income",
-    "expenses",
-    "tax:hst-collected",
-    "tax:hst-paid",
-    "liabilities:cra-tax",
-    "liabilities:cra-cpp",
-    "liabilities:cra-ei",
-    "equity:draws",
-    "equity:retained-earnings",
-]
+asset     = ["venn-cad", "hst-paid"]
+liability = ["cra-tax", "cra-cpp", "cra-ei", "hst-collected"]
+equity    = ["draws", "retained-earnings"]
+income    = ["fooco", "barco"]
+expense   = ["salary", "software", "recurring", "flights"]

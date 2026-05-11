@@ -1,4 +1,4 @@
-"""Fixture travel handler — overrides parent expenses handler."""
+"""Travel expense handler."""
 from collections.abc import Iterator
 
 from whoberi.types import Entry, LedgerMeta

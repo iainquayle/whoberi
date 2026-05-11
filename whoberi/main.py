@@ -35,11 +35,10 @@ def cmd_discover(root: Path, _args) -> int:
     if not ledgers:
         print("No ledgers found.")
         return 0
-    print(f"{'CSV':<40} {'Handler':<40} {'Overrides'}")
-    print("─" * 90)
-    for csv_path, handler, meta in ledgers:
-        overrides = ", ".join(f"{k}={v}" for k, v in meta.overrides.items()) or "—"
-        print(f"{str(csv_path.relative_to(root)):<40} {str(Path(handler.__file__).relative_to(root)):<40} {overrides}")
+    print(f"{'CSV':<40} {'Handler':<40}")
+    print("─" * 80)
+    for csv_path, handler, _meta in ledgers:
+        print(f"{str(csv_path.relative_to(root)):<40} {str(Path(handler.__file__).relative_to(root)):<40}")
     return 0
 
 

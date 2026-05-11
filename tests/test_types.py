@@ -1,9 +1,7 @@
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 
-from whoberi.types import Entry, LedgerMeta
 from tests.conftest import make_entry
 
 
@@ -22,17 +20,3 @@ def test_entry_balanced(accounts):
 ])
 def test_entry_unbalanced(accounts):
     assert not make_entry(accounts).balanced
-
-
-def test_ledger_meta_defaults():
-    meta = LedgerMeta(name="software", directory="expenses", path=Path("/data/expenses/software.csv"))
-    assert meta.overrides == {}
-
-
-def test_ledger_meta_overrides():
-    meta = LedgerMeta(
-        name="barco", directory="income",
-        path=Path("/data/income/barco.csv"),
-        overrides={"tax_applies": False},
-    )
-    assert meta.overrides["tax_applies"] is False

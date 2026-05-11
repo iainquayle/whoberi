@@ -9,7 +9,6 @@ class LedgerMeta:
     name: str          # CSV stem: "software", "fooco"
     directory: str     # parent dir name: "expenses", "income"
     path: Path         # full path to the CSV
-    overrides: dict = field(default_factory=dict)  # per-ledger .toml contents
 
 
 @dataclass

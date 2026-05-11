@@ -1,0 +1,28 @@
+"""Income handler for fooco — HST-inclusive invoice, tax always applies."""
+from collections.abc import Iterator
+from datetime import date as Date
+from decimal import Decimal
+from functools import partial
+
+from whoberi.tax import split_hst
+from whoberi.types import Entry, LedgerMeta
+
+
+def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]:
+    return map(partial(_row_to_entry, config=config, meta=meta), rows)
+
+
+def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
+    entry_date = Date.fromisoformat(row["date"].strip())
+    description = row["description"].strip()
+    total = Decimal(row["amount"].strip())
+    revenue, hst = split_hst(total, config)
+    return Entry(
+        date=entry_date,
+        accounts={
+            "assets:venn-cad": total,
+            f"income:{meta.name}": -revenue,
+            "tax:hst-collected": -hst,
+        },
+        meta={"description": description},
+    )

@@ -20,6 +20,16 @@ def test_aggregate_empty():
     assert aggregate([]) == {}
 
 
+def test_aggregate_zero_net_present():
+    entries = [
+        make_entry({"a": Decimal("100")}),
+        make_entry({"a": Decimal("-100")}),
+    ]
+    result = aggregate(entries)
+    assert "a" in result
+    assert result["a"] == Decimal("0")
+
+
 @pytest.mark.parametrize("amounts,expected", [
     ([Decimal("100"), Decimal("-100")], Decimal("0")),
     ([Decimal("100"), Decimal("-99")], Decimal("1")),

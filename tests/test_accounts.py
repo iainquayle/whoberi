@@ -1,10 +1,7 @@
 import pytest
 
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
-
-
-def _registry(**kwargs) -> AccountRegistry:
-    return AccountRegistry({AccountType(k): set(v) for k, v in kwargs.items()})
+from tests.conftest import make_registry as _registry
 
 
 # --- type_of ---
@@ -77,3 +74,10 @@ def test_load_registry_multiple_duplicates_reported_together():
     msg = str(exc_info.value)
     assert "'a'" in msg
     assert "'b'" in msg
+
+
+def test_load_registry_empty_list_valid():
+    config = {"accounts": {"asset": [], "income": ["fooco"]}}
+    reg = load_registry(config)
+    assert reg.is_known("fooco")
+    assert not reg.is_known("venn-cad")

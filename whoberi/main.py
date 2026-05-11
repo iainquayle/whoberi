@@ -4,25 +4,29 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
-from whoberi.accounts import load_registry
+from whoberi.accounts import AccountRegistry, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
 from whoberi.discover import discover, read_csv
 from whoberi.heal import heal_csv
-from whoberi.reports import report_balance, report_gst, report_payroll, report_pnl
+from whoberi.reports import gst_owing, report_balance, report_gst, report_payroll, report_pnl
 from whoberi.types import Entry
-from whoberi.validate import validate_entries
+from whoberi.validate import validate_column_names, validate_entries
 
 
-def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal]]:
+def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal], AccountRegistry]:
     config = load_config(root)
     registry = load_registry(config)
-    ledgers = discover(root, config)
+    ledgers = discover(root)
     entries = []
     for csv_path, handler, meta in ledgers:
         for msg in heal_csv(csv_path):
             print(msg, file=sys.stderr)
         rows = read_csv(csv_path)
+        if rows:
+            bad_cols = validate_column_names(list(rows[0].keys()))
+            if bad_cols:
+                raise ValueError(f"{csv_path}: invalid column names: {bad_cols}")
         ledger_key = str(csv_path.relative_to(root).with_suffix(""))
         for entry in handler.process(rows, config, meta):
             entry.meta.setdefault("ledger", ledger_key)
@@ -33,7 +37,7 @@ def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal]]:
 
 def cmd_discover(root: Path, _args) -> int:
     config = load_config(root)
-    ledgers = discover(root, config)
+    ledgers = discover(root)
     if not ledgers:
         print("No ledgers found.")
         return 0
@@ -72,34 +76,40 @@ def cmd_status(root: Path, _args) -> int:
     _, combined, _ = run_pipeline(root)
 
     cash = combined.get("venn-cad", Decimal("0"))
-    gst_collected = -combined.get("hst-collected", Decimal("0"))
-    gst_paid = combined.get("hst-paid", Decimal("0"))
-    gst_owing = gst_collected - gst_paid
+    _, _, owing = gst_owing(combined)
 
     print(f"  Cash (venn-cad):  {cash:>12.2f}")
-    print(f"  GST/HST owing:    {gst_owing:>12.2f}")
+    print(f"  GST/HST owing:    {owing:>12.2f}")
     return 0
 
 
 def cmd_report(root: Path, args) -> int:
     entries, _, registry = run_pipeline(root)
     period = getattr(args, "period", None)
-
     report_type = args.type
-    if report_type == "pnl":
-        print(report_pnl(entries, registry, period))
-    elif report_type == "gst":
-        print(report_gst(entries, registry, period))
-    elif report_type == "payroll":
-        print(report_payroll(entries, registry, period))
-    elif report_type == "balance":
-        print(report_balance(entries, registry, period))
-    elif report_type == "annual":
-        for fn in (report_pnl, report_gst, report_payroll, report_balance):
-            print(fn(entries, registry, period))
-            print()
-    else:
-        print(f"Unknown report type: {report_type}", file=sys.stderr)
+    try:
+        if report_type == "pnl":
+            print(report_pnl(entries, registry, period))
+        elif report_type == "gst":
+            print(report_gst(entries, period))
+        elif report_type == "payroll":
+            print(report_payroll(entries, period))
+        elif report_type == "balance":
+            print(report_balance(entries, registry, period))
+        elif report_type == "annual":
+            for fn, fn_args in (
+                (report_pnl, (entries, registry, period)),
+                (report_gst, (entries, period)),
+                (report_payroll, (entries, period)),
+                (report_balance, (entries, registry, period)),
+            ):
+                print(fn(*fn_args))
+                print()
+        else:
+            print(f"Unknown report type: {report_type}", file=sys.stderr)
+            return 1
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
         return 1
     return 0
 
@@ -108,6 +118,17 @@ def cmd_add(root: Path, args) -> int:
     ledger_path = root / (args.ledger + ".csv")
     if not ledger_path.exists():
         print(f"Ledger not found: {ledger_path}", file=sys.stderr)
+        return 1
+    with open(ledger_path, newline="") as f:
+        headers = next(csv_module.reader(f), None)
+    if headers is None:
+        print(f"Ledger has no header row: {ledger_path}", file=sys.stderr)
+        return 1
+    if len(args.fields) != len(headers):
+        print(
+            f"Expected {len(headers)} fields ({', '.join(headers)}), got {len(args.fields)}",
+            file=sys.stderr,
+        )
         return 1
     with open(ledger_path, "a", newline="") as f:
         writer = csv_module.writer(f)

@@ -9,9 +9,6 @@ class AccountType(StrEnum):
     EXPENSE = "expense"
 
 
-_KNOWN_TYPES = {t.value for t in AccountType}
-
-
 class AccountRegistry:
     def __init__(self, explicit: dict[AccountType, set[str]]):
         self._explicit = explicit
@@ -27,16 +24,14 @@ class AccountRegistry:
     def is_known(self, name: str) -> bool:
         return name in self._by_name
 
-    def names_of(self, t: AccountType) -> list[str]:
-        return sorted(self._explicit.get(t, set()))
-
 
 def load_registry(config: dict) -> AccountRegistry:
     section = config.get("accounts")
     if not section:
+        valid = sorted(t.value for t in AccountType)
         raise ValueError(
-            "Missing or empty [accounts] section in config.toml — "
-            f"must declare at least one type. Valid types: {sorted(_KNOWN_TYPES)}"
+            f"Missing or empty [accounts] section in config.toml — "
+            f"must declare at least one type. Valid types: {valid}"
         )
 
     errors: list[str] = []
@@ -44,18 +39,17 @@ def load_registry(config: dict) -> AccountRegistry:
     explicit: dict[AccountType, set[str]] = {}
 
     for key, value in section.items():
-        if key not in _KNOWN_TYPES:
-            errors.append(
-                f"Unknown account type '{key}' in [accounts] — "
-                f"valid types: {sorted(_KNOWN_TYPES)}"
-            )
+        try:
+            t = AccountType(key)
+        except ValueError:
+            valid = sorted(t.value for t in AccountType)
+            errors.append(f"Unknown account type '{key}' in [accounts] — valid types: {valid}")
             continue
         if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
             errors.append(
                 f"[accounts].{key} must be a list of strings, got {type(value).__name__}"
             )
             continue
-        t = AccountType(key)
         names: set[str] = set()
         for name in value:
             if name in seen:

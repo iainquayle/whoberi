@@ -4,13 +4,9 @@ from pathlib import Path
 import pytest
 
 from whoberi.heal import heal_csv
+from tests.conftest import write_csv
 
-
-def write_csv(path: Path, rows: list[dict]) -> None:
-    with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["date", "description", "amount"])
-        writer.writeheader()
-        writer.writerows(rows)
+_FIELDS = ["date", "description", "amount"]
 
 
 def read_csv(path: Path) -> list[dict]:
@@ -37,7 +33,7 @@ def read_csv(path: Path) -> list[dict]:
 ])
 def test_out_of_order_sorted(tmp_path, rows, expected_dates):
     path = tmp_path / "ledger.csv"
-    write_csv(path, rows)
+    write_csv(path, _FIELDS, rows)
     logs = heal_csv(path)
     assert any("sorted" in msg for msg in logs)
     result = read_csv(path)
@@ -47,7 +43,7 @@ def test_out_of_order_sorted(tmp_path, rows, expected_dates):
 def test_duplicate_removed(tmp_path):
     path = tmp_path / "ledger.csv"
     row = {"date": "2026-01-01", "description": "AWS", "amount": "100"}
-    write_csv(path, [row, row])
+    write_csv(path, _FIELDS, [row, row])
     logs = heal_csv(path)
     assert any("duplicate" in msg for msg in logs)
     assert len(read_csv(path)) == 1
@@ -59,7 +55,7 @@ def test_clean_csv_unchanged(tmp_path):
         {"date": "2026-01-01", "description": "A", "amount": "10"},
         {"date": "2026-02-01", "description": "B", "amount": "20"},
     ]
-    write_csv(path, rows)
+    write_csv(path, _FIELDS, rows)
     original_mtime = path.stat().st_mtime
     logs = heal_csv(path)
     assert logs == []
@@ -70,7 +66,7 @@ def test_duplicate_and_out_of_order(tmp_path):
     path = tmp_path / "ledger.csv"
     row_b = {"date": "2026-02-01", "description": "B", "amount": "20"}
     row_a = {"date": "2026-01-01", "description": "A", "amount": "10"}
-    write_csv(path, [row_b, row_a, row_b])  # out-of-order + duplicate
+    write_csv(path, _FIELDS, [row_b, row_a, row_b])  # out-of-order + duplicate
     logs = heal_csv(path)
     assert any("duplicate" in msg for msg in logs)
     assert any("sorted" in msg for msg in logs)

@@ -107,13 +107,13 @@ def test_draws_handler():
 
 @pytest.mark.parametrize("rows,config_extra,expected_dates", [
     (
-        [{"date": "2026-01-01", "end_date": "2026-03-01", "period": "monthly",
+        [{"date": "2026-01-01", "end-date": "2026-03-01", "period": "monthly",
           "description": "AWS", "amount": "157.50"}],
         {"as_of": "2026-12-31"},
         [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)],
     ),
     (
-        [{"date": "2026-01-01", "end_date": "", "period": "monthly",
+        [{"date": "2026-01-01", "end-date": "", "period": "monthly",
           "description": "AWS", "amount": "157.50"}],
         {"as_of": "2026-03-15"},
         [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)],

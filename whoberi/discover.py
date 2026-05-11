@@ -8,7 +8,7 @@ from whoberi.types import LedgerMeta
 _SKIP_DIRS = {"imports", "reports"}
 
 
-def discover(root: Path, config: dict | None = None) -> list[tuple[Path, ModuleType, LedgerMeta]]:
+def discover(root: Path) -> list[tuple[Path, ModuleType, LedgerMeta]]:
     csvs, pys = _collect(root)
     errors = []
     for csv_path in sorted(csvs):

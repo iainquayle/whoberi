@@ -7,7 +7,7 @@ from tests.conftest import FIXTURES
 
 def run_pipeline(root):
     config = load_config(root)
-    ledgers = discover(root, config)
+    ledgers = discover(root)
     entries = []
     for csv_path, handler, meta in ledgers:
         rows = read_csv(csv_path)

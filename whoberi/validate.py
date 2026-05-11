@@ -1,5 +1,4 @@
 import re
-from decimal import Decimal
 
 from whoberi.accounts import AccountRegistry
 from whoberi.hashing import row_hash
@@ -11,8 +10,8 @@ _COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 def validate_entry(entry: Entry, registry: AccountRegistry | None = None) -> list[str]:
     errors = []
 
-    if not entry.balanced:
-        off = sum(entry.accounts.values())
+    off = sum(entry.accounts.values())
+    if off != 0:
         errors.append(f"{entry.date} '{entry.meta.get('description', '')}': accounts off by {off}")
 
     if registry is not None:
@@ -31,8 +30,8 @@ def validate_entries(entries: list[Entry], registry: AccountRegistry | None = No
     return errors
 
 
-def validate_column_names(headers: list[str], pattern: re.Pattern = _COLUMN_NAME_RE) -> list[str]:
-    return [h for h in headers if not pattern.match(h)]
+def validate_column_names(headers: list[str]) -> list[str]:
+    return [h for h in headers if not _COLUMN_NAME_RE.match(h)]
 
 
 def _detect_duplicates(entries: list[Entry]) -> list[str]:

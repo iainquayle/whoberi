@@ -1,4 +1,5 @@
 import calendar
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -14,37 +15,36 @@ def filter_by_period(entries: list[Entry], period: str | None) -> list[Entry]:
     return [e for e in entries if start <= e.date <= end]
 
 
+def _quarter(m: re.Match) -> tuple[date, date]:
+    q, year = int(m.group(1)), int(m.group(2))
+    month_start = (q - 1) * 3 + 1
+    return date(year, month_start, 1), _month_end(year, month_start + 2)
+
+
+def _month_from_match(m: re.Match) -> tuple[date, date]:
+    year, month = int(m.group(1)), int(m.group(2))
+    return date(year, month, 1), _month_end(year, month)
+
+
+def _year_from_match(m: re.Match) -> tuple[date, date]:
+    year = int(m.group(1))
+    return date(year, 1, 1), date(year, 12, 31)
+
+
+_PERIOD_PATTERNS = [
+    (re.compile(r"^Q([1-4]) (\d{4})$"), _quarter),
+    (re.compile(r"^(\d{4})-(\d{2})$"), _month_from_match),
+    (re.compile(r"^(\d{4})$"), _year_from_match),
+]
+
+
 def _parse_period(period: str) -> tuple[date, date]:
-    period = period.upper()
-
-    if period.startswith("Q") and period[1:].isdigit():
-        q = int(period[1:])
-        if q not in (1, 2, 3, 4):
-            raise ValueError(f"Invalid quarter: {period}")
-        year = date.today().year
-        month_start = (q - 1) * 3 + 1
-        month_end = q * 3
-        return date(year, month_start, 1), _month_end(year, month_end)
-
-    parts = period.split()
-    if len(parts) == 2:
-        if parts[0].startswith("Q"):
-            q, year = int(parts[0][1:]), int(parts[1])
-        else:
-            year, q = int(parts[0]), int(parts[1][1:])
-        month_start = (q - 1) * 3 + 1
-        month_end = q * 3
-        return date(year, month_start, 1), _month_end(year, month_end)
-
-    if len(period) == 7 and period[4] == "-":
-        year, month = int(period[:4]), int(period[5:])
-        return date(year, month, 1), _month_end(year, month)
-
-    if len(period) == 4 and period.isdigit():
-        year = int(period)
-        return date(year, 1, 1), date(year, 12, 31)
-
-    raise ValueError(f"Cannot parse period: '{period}'")
+    s = period.strip().upper()
+    for pattern, builder in _PERIOD_PATTERNS:
+        m = pattern.match(s)
+        if m:
+            return builder(m)
+    raise ValueError(f"Cannot parse period: '{period}' — valid formats: 'Q1 2026', '2026-01', '2026'")
 
 
 def _month_end(year: int, month: int) -> date:
@@ -76,13 +76,19 @@ def report_pnl(entries: list[Entry], registry: AccountRegistry, period: str | No
     return "\n".join(lines)
 
 
-def report_gst(entries: list[Entry], registry: AccountRegistry, period: str | None = None) -> str:
+def gst_owing(combined: dict[str, Decimal]) -> tuple[Decimal, Decimal, Decimal]:
+    """Return (collected, paid, owing) from a combined account dict."""
+    collected = -combined.get("hst-collected", Decimal("0"))
+    paid = combined.get("hst-paid", Decimal("0"))
+    return collected, paid, collected - paid
+
+
+def report_gst(entries: list[Entry], period: str | None = None) -> str:
+    # Depends on named accounts: hst-collected, hst-paid
     filtered = filter_by_period(entries, period)
     combined = aggregate(filtered)
 
-    collected = -combined.get("hst-collected", Decimal("0"))
-    paid = combined.get("hst-paid", Decimal("0"))
-    owing = collected - paid
+    collected, paid, owing = gst_owing(combined)
 
     lines = [f"GST/HST{' — ' + period if period else ''}"]
     lines.append("─" * 40)
@@ -93,7 +99,8 @@ def report_gst(entries: list[Entry], registry: AccountRegistry, period: str | No
     return "\n".join(lines)
 
 
-def report_payroll(entries: list[Entry], registry: AccountRegistry, period: str | None = None) -> str:
+def report_payroll(entries: list[Entry], period: str | None = None) -> str:
+    # Depends on named accounts: salary, cra-tax, cra-cpp, cra-ei
     filtered = filter_by_period(entries, period)
     combined = aggregate(filtered)
 

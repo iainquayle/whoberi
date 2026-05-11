@@ -3,22 +3,8 @@ from decimal import Decimal
 
 import pytest
 
-from whoberi.accounts import AccountRegistry, AccountType
 from whoberi.reports import filter_by_period, report_balance, report_gst, report_payroll, report_pnl
-from tests.conftest import make_entry
-
-
-def _registry(**kwargs) -> AccountRegistry:
-    return AccountRegistry({AccountType(k): set(v) for k, v in kwargs.items()})
-
-
-REGISTRY = _registry(
-    asset=["venn-cad", "hst-paid"],
-    liability=["cra-tax", "cra-cpp", "cra-ei", "hst-collected"],
-    equity=["draws"],
-    income=["fooco"],
-    expense=["software", "salary"],
-)
+from tests.conftest import FULL_REGISTRY, make_entry
 
 ENTRIES = [
     # Q1: income 5250 HST-inclusive
@@ -52,33 +38,26 @@ def test_filter_none_returns_all():
 
 # ─── Reports ─────────────────────────────────────────────────────────────────
 
-def test_pnl_q1():
-    out = report_pnl(ENTRIES, REGISTRY, "Q1 2026")
-    assert "$4,646.02" in out   # revenue
-    assert "$5,139.38" in out   # expenses (salary 5000 + software 139.38)
-
-
-def test_pnl_all():
-    out = report_pnl(ENTRIES, REGISTRY)
-    assert "Revenue" in out and "Expenses" in out and "Net" in out
-
-
-def test_gst_q1():
-    out = report_gst(ENTRIES, REGISTRY, "Q1 2026")
-    assert "$603.98" in out    # collected
-    assert "$18.12" in out     # paid
-
-
-def test_payroll_report():
-    out = report_payroll(ENTRIES, REGISTRY, "Q1 2026")
-    assert "$5,000.00" in out   # salary
-    assert "$1,000.00" in out   # tax
-    assert "$300.00" in out     # cpp
+# _fmt in reports.py controls currency formatting; these assertions depend on it.
+@pytest.mark.parametrize("report_fn,extra_args,expected_substrings", [
+    (report_pnl, (FULL_REGISTRY, "Q1 2026"), ["$4,646.02", "$5,139.38"]),  # revenue, expenses
+    (report_gst, ("Q1 2026",), ["$603.98", "$18.12"]),                      # collected, paid ITC
+    (report_payroll, ("Q1 2026",), ["$5,000.00", "$1,000.00", "$300.00"]),  # salary, tax, cpp
+])
+def test_report_q1(report_fn, extra_args, expected_substrings):
+    out = report_fn(ENTRIES, *extra_args)
+    for s in expected_substrings:
+        assert s in out
 
 
 def test_balance_sheet_balances():
-    assert "$0.00" in report_balance(ENTRIES, REGISTRY)
+    out = report_balance(ENTRIES, FULL_REGISTRY)
+    assert "Check (=0):" in out and "  $0.00" in out
 
 
 def test_balance_sheet_date_filter():
-    assert report_balance(ENTRIES, REGISTRY, "Q1 2026") != report_balance(ENTRIES, REGISTRY)
+    q1 = report_balance(ENTRIES, FULL_REGISTRY, "Q1 2026")
+    all_time = report_balance(ENTRIES, FULL_REGISTRY)
+    # Q1 net income is $493.36; all-time differs — assertion catches period filter regressions
+    assert "$493.36" in q1
+    assert "$493.36" not in all_time

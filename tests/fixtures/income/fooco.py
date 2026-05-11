@@ -1,10 +1,9 @@
 """Income handler for fooco — HST-inclusive invoice, tax always applies."""
 from collections.abc import Iterator
 from datetime import date as Date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from functools import partial
 
-from whoberi.tax import split_hst
 from whoberi.types import Entry, LedgerMeta
 
 
@@ -16,7 +15,9 @@ def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
     entry_date = Date.fromisoformat(row["date"].strip())
     description = row["description"].strip()
     total = Decimal(row["amount"].strip())
-    revenue, hst = split_hst(total, config)
+    rate = Decimal(str(config["tax"]["hst_rate"]))
+    hst = (total * rate / (1 + rate)).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    revenue = total - hst
     return Entry(
         date=entry_date,
         accounts={

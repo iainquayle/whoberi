@@ -2,6 +2,7 @@
 import csv
 from pathlib import Path
 
+from whoberi.discover import read_csv
 from whoberi.hashing import row_hash
 
 
@@ -19,7 +20,7 @@ def import_bank_csv(
     Returns (matched, unmatched). Matched rows are appended to their target CSVs.
     Duplicate rows (already present) are skipped silently.
     """
-    rows = _read_csv(source)
+    rows = read_csv(source)
     matched = []
     unmatched = []
 
@@ -36,7 +37,7 @@ def import_bank_csv(
 
         target_path = root / (target_ledger + ".csv")
         if target_path not in existing_hashes:
-            existing_hashes[target_path] = {row_hash(r) for r in _read_csv(target_path)}
+            existing_hashes[target_path] = {row_hash(r) for r in (read_csv(target_path) if target_path.exists() else [])}
 
         h = row_hash(row)
         if h in existing_hashes[target_path]:
@@ -56,13 +57,6 @@ def _match_rule(description: str, rules: dict[str, str]) -> str | None:
         if pattern.upper() in desc_upper:
             return target
     return None
-
-
-def _read_csv(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    with open(path, newline="") as f:
-        return list(csv.DictReader(f))
 
 
 def _append_row(row: dict, target_path: Path) -> None:

@@ -2,19 +2,8 @@ from decimal import Decimal
 
 import pytest
 
-from whoberi.accounts import AccountRegistry, AccountType
 from whoberi.validate import validate_column_names, validate_entries, validate_entry
-from tests.conftest import make_entry
-
-
-def _registry(**kwargs) -> AccountRegistry:
-    return AccountRegistry({AccountType(k): set(v) for k, v in kwargs.items()})
-
-
-REGISTRY = _registry(
-    asset=["venn-cad", "hst-paid"],
-    expense=["meals", "software"],
-)
+from tests.conftest import FULL_REGISTRY, make_entry
 
 
 # --- Per-entry ---
@@ -29,13 +18,19 @@ def test_unbalanced_entry_error():
     assert "off by" in errors[0]
 
 
+def test_sub_penny_imbalance_error():
+    errors = validate_entry(make_entry({"a": Decimal("100.001"), "b": Decimal("-100")}))
+    assert len(errors) == 1
+    assert "off by" in errors[0]
+
+
 @pytest.mark.parametrize("accounts,expected_error", [
     ({"venn-cad": Decimal("100"), "unknown-acct": Decimal("-100")}, "unknown account"),
     ({"meals": Decimal("50"), "venn-cad": Decimal("-50")}, None),
     ({"hst-paid": Decimal("10"), "venn-cad": Decimal("-10")}, None),
 ])
 def test_account_registry(accounts, expected_error):
-    errors = validate_entry(make_entry(accounts), REGISTRY)
+    errors = validate_entry(make_entry(accounts), FULL_REGISTRY)
     if expected_error:
         assert any(expected_error in e for e in errors)
     else:

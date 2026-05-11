@@ -36,11 +36,7 @@ def heal_csv(path: Path) -> list[str]:
             seen.add(h)
             deduped.append(row)
 
-    # Sort chronologically by date column
-    try:
-        sorted_rows = sorted(deduped, key=lambda r: r.get("date", ""))
-    except Exception:
-        sorted_rows = deduped
+    sorted_rows = sorted(deduped, key=lambda r: r.get("date", ""))
 
     if sorted_rows != deduped:
         logs.append(f"heal: re-sorted {path.name} chronologically ({len(sorted_rows)} rows)")

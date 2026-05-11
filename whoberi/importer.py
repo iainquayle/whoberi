@@ -9,7 +9,7 @@ from whoberi.hashing import row_hash
 def import_bank_csv(
     source: Path,
     rules: dict[str, str],
-    root: Path,
+    ledgers_root: Path,
 ) -> tuple[list[dict], list[dict]]:
     """
     Match rows from source CSV against rules.
@@ -35,7 +35,7 @@ def import_bank_csv(
             unmatched.append(row)
             continue
 
-        target_path = root / (target_ledger + ".csv")
+        target_path = ledgers_root / (target_ledger + ".csv")
         if target_path not in existing_hashes:
             existing_hashes[target_path] = {row_hash(r) for r in (read_csv(target_path) if target_path.exists() else [])}
 

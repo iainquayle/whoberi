@@ -3,20 +3,16 @@ import pytest
 from whoberi.discover import discover
 from tests.conftest import FIXTURES
 
+BOOKS = FIXTURES / "books"
+
 
 def test_handler_in_same_dir():
-    results = discover(FIXTURES)
+    results = discover(BOOKS)
     by_path = {r[0]: r[1] for r in results}
-    assert FIXTURES / "income" / "fooco.csv" in by_path
-    assert FIXTURES / "income" / "barco.csv" in by_path
-    assert by_path[FIXTURES / "income" / "fooco.csv"].__file__ == str(FIXTURES / "income" / "fooco.py")
-    assert by_path[FIXTURES / "income" / "barco.csv"].__file__ == str(FIXTURES / "income" / "barco.py")
-
-
-def test_imports_dir_skipped():
-    results = discover(FIXTURES)
-    paths = {r[0] for r in results}
-    assert not any("imports" in str(p) for p in paths)
+    assert BOOKS / "income" / "fooco.csv" in by_path
+    assert BOOKS / "income" / "barco.csv" in by_path
+    assert by_path[BOOKS / "income" / "fooco.csv"].__file__ == str(BOOKS / "income" / "fooco.py")
+    assert by_path[BOOKS / "income" / "barco.csv"].__file__ == str(BOOKS / "income" / "barco.py")
 
 
 def test_missing_handler_raises(tmp_path):
@@ -42,9 +38,9 @@ def test_combined_errors_reported(tmp_path):
 
 
 def test_ledger_meta_fields():
-    results = discover(FIXTURES)
+    results = discover(BOOKS)
     by_name = {r[2].name: r[2] for r in results}
     meta = by_name["software"]
     assert meta.name == "software"
     assert meta.directory == "expenses"
-    assert meta.path == FIXTURES / "expenses" / "software.csv"
+    assert meta.path == BOOKS / "expenses" / "software.csv"

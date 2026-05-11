@@ -8,11 +8,11 @@ from whoberi.types import Entry, LedgerMeta
 
 
 def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]:
-    payroll_cfg = config.get("payroll", {})
-    salary = Decimal(str(payroll_cfg.get("salary", "0")))
-    income_tax = Decimal(str(payroll_cfg.get("income_tax", "0")))
-    cpp = Decimal(str(payroll_cfg.get("cpp", "0")))
-    ei = Decimal(str(payroll_cfg.get("ei", "0")))
+    payroll_cfg = config["consts"]["payroll"]
+    salary = Decimal(str(payroll_cfg["salary"]))
+    income_tax = Decimal(str(payroll_cfg["income_tax"]))
+    cpp = Decimal(str(payroll_cfg["cpp"]))
+    ei = Decimal(str(payroll_cfg["ei"]))
     net = salary - income_tax - cpp - ei
     return map(partial(_row_to_entry, salary=salary, income_tax=income_tax, cpp=cpp, ei=ei, net=net), rows)
 

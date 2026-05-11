@@ -22,10 +22,12 @@ def run(*args: str, root: Path = FIXTURES) -> subprocess.CompletedProcess:
     (["discover"], "software"),
     (["validate"], "OK"),
     (["accounts"], "venn-cad"),
-    (["status"], "Cash"),
+    (["status"], "Asset"),
     (["report", "pnl"], "Revenue"),
     (["report", "gst"], "Collected"),
     (["report", "balance"], "$0.00"),
+    (["report", "accounts"], "asset"),
+    (["report", "list"], "pnl"),
 ])
 def test_subcommand(args, expected):
     result = run(*args)
@@ -37,6 +39,12 @@ def test_report_pnl_with_period():
     result = run("report", "pnl", "--period", "Q1 2026")
     assert result.returncode == 0
     assert "Q1 2026" in result.stdout
+
+
+def test_report_unknown_exits_nonzero():
+    result = run("report", "nonexistent")
+    assert result.returncode != 0
+    assert "available" in result.stderr
 
 
 def test_missing_root_reports_error():

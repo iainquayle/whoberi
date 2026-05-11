@@ -12,8 +12,11 @@ from whoberi.types import Entry, LedgerMeta
 from tests.conftest import FIXTURES
 
 
+BOOKS = FIXTURES / "books"
+
+
 def load_handler(rel_path: str) -> ModuleType:
-    path = FIXTURES / rel_path
+    path = BOOKS / rel_path
     spec = importlib.util.spec_from_file_location("_handler", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -24,7 +27,7 @@ def make_meta(name: str, directory: str) -> LedgerMeta:
     return LedgerMeta(
         name=name,
         directory=directory,
-        path=FIXTURES / directory / f"{name}.csv",
+        path=BOOKS / directory / f"{name}.csv",
     )
 
 

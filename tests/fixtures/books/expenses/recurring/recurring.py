@@ -22,7 +22,7 @@ def _expand_row(row: dict, config: dict, as_of: Date, meta: LedgerMeta) -> Itera
     period = row["period"].strip()
     description = row["description"].strip()
     total = Decimal(row["amount"].strip())
-    rate = Decimal(str(config["tax"]["hst_rate"]))
+    rate = Decimal(str(config["consts"]["tax"]["hst_rate"]))
     hst = (total * rate / (1 + rate)).quantize(Decimal("0.01"), ROUND_HALF_UP)
     pretax = total - hst
 

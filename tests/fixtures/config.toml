@@ -1,11 +1,7 @@
-[tax]
-hst_rate = 0.13
-
-[payroll]
-salary = 5000.00
-income_tax = 1000.00
-cpp = 300.00
-ei = 150.00
+[dirs]
+ledgers = "books"
+imports = "imports"
+reports = "reports"
 
 [accounts]
 asset     = ["venn-cad", "hst-paid"]
@@ -13,3 +9,12 @@ liability = ["cra-tax", "cra-cpp", "cra-ei", "hst-collected"]
 equity    = ["draws", "retained-earnings"]
 income    = ["fooco", "barco"]
 expense   = ["salary", "software", "recurring", "flights"]
+
+[consts.tax]
+hst_rate = 0.13
+
+[consts.payroll]
+salary = 5000.00
+income_tax = 1000.00
+cpp = 300.00
+ei = 150.00

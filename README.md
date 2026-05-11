@@ -15,19 +15,21 @@ Exposes the `whoberi` console script.
 ```
 <root>/
   config.toml
-  income/      *.csv  *.py          # each csv has a same-stem handler
-  expenses/    *.csv  *.py
-    recurring/ *.csv  *.py
-    travel/    *.csv  *.py
-  payroll/     *.csv  *.py
-  draws/       *.csv  *.py
-  imports/     # skipped by discovery
-  reports/     # skipped by discovery
+  books/           # [dirs].ledgers — every *.csv here is a ledger
+    income/    *.csv  *.py          # each csv has a same-stem handler
+    expenses/  *.csv  *.py
+      recurring/ *.csv  *.py
+      travel/    *.csv  *.py
+    payroll/   *.csv  *.py
+    draws/     *.csv  *.py
+  imports/         # [dirs].imports — raw bank CSVs
+  reports/         # [dirs].reports — report plugin *.py files
 ```
 
-- Every `*.csv` under `<root>` is a ledger (except under `imports/` or `reports/`).
+- Every `*.csv` under the ledgers directory is a ledger.
 - Each ledger requires a same-stem handler: `foo.csv` ↔ `foo.py` in the same directory. Missing or unpaired files raise an error.
 - CSV stem becomes the account namespace: `income/fooco.csv` → `income:fooco`.
+- Directory names are configured in `config.toml` under `[dirs]` — see below.
 
 ## CLI
 
@@ -62,26 +64,33 @@ def process(rows: list[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]
 
 ## config.toml
 
-```toml
-[tax]
-hst_rate = 0.13
+Top-level keys are system-reserved: `accounts`, `as_of`, `consts`, `dirs`. Any other top-level key is an error.
+`[dirs]` is required and names the three per-concern subdirectories (relative to `<root>`).
+Put your own numeric constants under `[consts]` and access them in handlers via `config["consts"][...]`.
 
-[payroll]
-salary = 5000.00
-income_tax = 1000.00
-cpp = 300.00
-ei = 150.00
+```toml
+[dirs]
+ledgers = "books"
+imports = "imports"
+reports = "reports"
 
 [accounts]
 asset     = ["venn-cad"]
 liability = ["cra-tax", "cra-cpp", "cra-ei"]
 equity    = ["draws", "retained-earnings"]
-tax       = ["hst-collected", "hst-paid"]
 income    = ["fooco", "barco"]
 expense   = ["salary", "software", "recurring"]
 
 as_of = "2026-01-01"                                     # optional; pins "today" for recurring
-import_rules = {"ACME CORP" = "income/acme"}             # used by importer.py (library only)
+
+[consts.tax]
+hst_rate = 0.13
+
+[consts.payroll]
+salary = 5000.00
+income_tax = 1000.00
+cpp = 300.00
+ei = 150.00
 ```
 
 ## Caveats

@@ -7,9 +7,9 @@ from types import ModuleType
 
 import pytest
 
+from whoberi.config import load_config
 from whoberi.types import Entry, LedgerMeta
-
-FIXTURES = Path(__file__).parent / "fixtures"
+from tests.conftest import FIXTURES
 
 
 def load_handler(rel_path: str) -> ModuleType:
@@ -29,10 +29,7 @@ def make_meta(name: str, directory: str, overrides: dict | None = None) -> Ledge
     )
 
 
-BASE_CONFIG = {
-    "tax": {"hst_rate": 0.13},
-    "payroll": {"salary": 5000, "income_tax": 1000, "cpp": 300, "ei": 150},
-}
+CONFIG = load_config(FIXTURES)
 
 
 # --- Expense handler ---
@@ -44,7 +41,7 @@ BASE_CONFIG = {
 def test_expense_handler_splits_hst(amount, expected_pretax, expected_hst):
     handler = load_handler("expenses/handler.py")
     rows = [{"date": "2026-01-01", "description": "AWS", "amount": amount}]
-    entries = list(handler.process(rows, BASE_CONFIG, make_meta("software", "expenses")))
+    entries = list(handler.process(rows, CONFIG, make_meta("software", "expenses")))
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
@@ -58,7 +55,7 @@ def test_expense_handler_splits_hst(amount, expected_pretax, expected_hst):
 def test_income_handler_with_tax():
     handler = load_handler("income/handler.py")
     rows = [{"date": "2026-01-15", "description": "Invoice 1", "amount": "5250.00"}]
-    entries = list(handler.process(rows, BASE_CONFIG, make_meta("fooco", "income")))
+    entries = list(handler.process(rows, CONFIG, make_meta("fooco", "income")))
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
@@ -71,7 +68,7 @@ def test_income_handler_no_tax():
     handler = load_handler("income/handler.py")
     rows = [{"date": "2026-02-01", "description": "Invoice 10", "amount": "3000.00"}]
     meta = make_meta("barco", "income", overrides={"tax_applies": False})
-    entries = list(handler.process(rows, BASE_CONFIG, meta))
+    entries = list(handler.process(rows, CONFIG, meta))
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
@@ -84,7 +81,7 @@ def test_income_handler_no_tax():
 def test_payroll_handler():
     handler = load_handler("payroll/handler.py")
     rows = [{"date": "2026-01-15"}]
-    entries = list(handler.process(rows, BASE_CONFIG, make_meta("payroll", "payroll")))
+    entries = list(handler.process(rows, CONFIG, make_meta("payroll", "payroll")))
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
@@ -100,7 +97,7 @@ def test_payroll_handler():
 def test_draws_handler():
     handler = load_handler("draws/handler.py")
     rows = [{"date": "2026-01-20", "amount": "3000.00"}]
-    entries = list(handler.process(rows, BASE_CONFIG, make_meta("draws", "draws")))
+    entries = list(handler.process(rows, CONFIG, make_meta("draws", "draws")))
     assert len(entries) == 1
     e = entries[0]
     assert e.balanced
@@ -126,7 +123,7 @@ def test_draws_handler():
 ])
 def test_recurring_expense_handler_expands_dates(rows, config_extra, expected_dates):
     handler = load_handler("expenses/recurring/handler.py")
-    config = {**BASE_CONFIG, **config_extra}
+    config = {**CONFIG, **config_extra}
     entries = list(handler.process(iter(rows), config, make_meta("recurring", "expenses")))
     assert [e.date for e in entries] == expected_dates
     assert all(e.balanced for e in entries)

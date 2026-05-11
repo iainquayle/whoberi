@@ -1,6 +1,5 @@
 import csv
 import importlib.util
-import re
 from pathlib import Path
 from types import ModuleType
 
@@ -8,14 +7,10 @@ from whoberi.config import load_overrides
 from whoberi.types import LedgerMeta
 
 _SKIP_DIRS = {"imports", "reports"}
-_COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
 def discover(root: Path, config: dict | None = None) -> list[tuple[Path, ModuleType, LedgerMeta]]:
     """Find all CSVs under root, resolve their handlers, build LedgerMeta."""
-    column_pattern = (config or {}).get("column_name_pattern", _COLUMN_NAME_RE.pattern)
-    col_re = re.compile(column_pattern)
-
     handler_cache: dict[Path, ModuleType] = {}
     results = []
 
@@ -68,5 +63,6 @@ def _load_handler(handler_path: Path) -> ModuleType:
     return module
 
 
-def read_csv(csv_path: Path) -> csv.DictReader:
-    return csv.DictReader(open(csv_path, newline=""))
+def read_csv(csv_path: Path) -> list[dict]:
+    with open(csv_path, newline="") as f:
+        return list(csv.DictReader(f))

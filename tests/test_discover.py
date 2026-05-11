@@ -1,10 +1,7 @@
-from pathlib import Path
-
 import pytest
 
 from whoberi.discover import discover
-
-FIXTURES = Path(__file__).parent / "fixtures"
+from tests.conftest import FIXTURES
 
 
 def test_handler_in_same_dir():
@@ -31,14 +28,12 @@ def test_handler_overridden_by_child():
 
 
 def test_imports_dir_skipped():
-    """CSVs under imports/ should not appear in results."""
     results = discover(FIXTURES)
     paths = {r[0] for r in results}
     assert not any("imports" in str(p) for p in paths)
 
 
 def test_toml_overrides_loaded():
-    """barco.toml overrides should appear in barco's LedgerMeta."""
     results = discover(FIXTURES)
     by_name = {r[2].name: r[2] for r in results}
     assert by_name["barco"].overrides == {"currency": "USD", "tax_applies": False}
@@ -50,18 +45,11 @@ def test_no_overrides_when_toml_absent():
     assert by_name["fooco"].overrides == {}
 
 
-def test_missing_handler_raises():
-    """A CSV with no handler anywhere in the tree should raise FileNotFoundError."""
-    tmp = Path(__file__).parent / "fixtures_no_handler"
-    tmp.mkdir(exist_ok=True)
-    csv = tmp / "orphan.csv"
+def test_missing_handler_raises(tmp_path):
+    csv = tmp_path / "orphan.csv"
     csv.write_text("date\n2026-01-01\n")
-    try:
-        with pytest.raises(FileNotFoundError, match="No handler.py found"):
-            discover(tmp)
-    finally:
-        csv.unlink()
-        tmp.rmdir()
+    with pytest.raises(FileNotFoundError, match="No handler.py found"):
+        discover(tmp_path)
 
 
 def test_ledger_meta_fields():

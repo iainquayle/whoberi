@@ -25,15 +25,16 @@ def test_monthly(start, as_of, end, expected):
     assert list(expand_dates(start, "monthly", as_of, end)) == expected
 
 
-def test_semi_monthly():
-    result = list(expand_dates(date(2026, 1, 1), "semi-monthly", date(2026, 2, 28)))
-    assert result == [date(2026, 1, 1), date(2026, 1, 15), date(2026, 2, 1), date(2026, 2, 15)]
-
-
-def test_semi_monthly_start_mid_month():
-    # start on the 15th — the 1st of that month should be skipped
-    result = list(expand_dates(date(2026, 1, 15), "semi-monthly", date(2026, 2, 15)))
-    assert result == [date(2026, 1, 15), date(2026, 2, 1), date(2026, 2, 15)]
+@pytest.mark.parametrize("start,as_of,expected", [
+    # Start on 1st — full months
+    (date(2026, 1, 1), date(2026, 2, 28),
+     [date(2026, 1, 1), date(2026, 1, 15), date(2026, 2, 1), date(2026, 2, 15)]),
+    # Start on 15th — skip 1st of that month
+    (date(2026, 1, 15), date(2026, 2, 15),
+     [date(2026, 1, 15), date(2026, 2, 1), date(2026, 2, 15)]),
+])
+def test_semi_monthly(start, as_of, expected):
+    assert list(expand_dates(start, "semi-monthly", as_of)) == expected
 
 
 def test_weekly():

@@ -1,7 +1,8 @@
 """Auto-heal ledger CSVs: sort chronologically, remove duplicate rows."""
 import csv
-import hashlib
 from pathlib import Path
+
+from whoberi.hashing import row_hash
 
 
 def heal_csv(path: Path) -> list[str]:
@@ -28,7 +29,7 @@ def heal_csv(path: Path) -> list[str]:
     seen: set[str] = set()
     deduped = []
     for row in rows:
-        h = _row_hash(row)
+        h = row_hash(row)
         if h in seen:
             logs.append(f"heal: removed duplicate row in {path.name}: {dict(row)}")
         else:
@@ -56,6 +57,3 @@ def heal_csv(path: Path) -> list[str]:
     return logs
 
 
-def _row_hash(row: dict) -> str:
-    key = "|".join(f"{k}={v}" for k, v in sorted(row.items()))
-    return hashlib.sha256(key.encode()).hexdigest()

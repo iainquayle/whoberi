@@ -1,14 +1,10 @@
-from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 from whoberi.types import Entry, LedgerMeta
-
-
-def make_entry(accounts: dict[str, Decimal]) -> Entry:
-    return Entry(date=date(2026, 1, 1), accounts=accounts)
+from tests.conftest import make_entry
 
 
 @pytest.mark.parametrize("accounts", [

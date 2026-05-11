@@ -1,7 +1,8 @@
+import calendar
 from datetime import date
 from decimal import Decimal
 
-from whoberi.aggregate import aggregate
+from whoberi.aggregate import aggregate, check_balance
 from whoberi.types import Entry
 
 
@@ -54,7 +55,6 @@ def _parse_period(period: str) -> tuple[date, date]:
 
 
 def _month_end(year: int, month: int) -> date:
-    import calendar
     last_day = calendar.monthrange(year, month)[1]
     return date(year, month, last_day)
 
@@ -139,7 +139,6 @@ def report_balance(entries: list[Entry], period: str | None = None) -> str:
     lines.append(f"  Tax (HST):   {_fmt(tax):>10}")
     lines.append("─" * 40)
     # Global zero-sum check: all accounts across all entries must sum to zero
-    from whoberi.aggregate import check_balance
     check = check_balance(combined)
     lines.append(f"  Check (=0):  {_fmt(check):>10}")
     return "\n".join(lines)

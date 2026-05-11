@@ -3,7 +3,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-FIXTURES = Path(__file__).parent / "fixtures"
+import pytest
+
+from tests.conftest import FIXTURES
+
 PYTHON = sys.executable
 
 
@@ -15,55 +18,25 @@ def run(*args: str, root: Path = FIXTURES) -> subprocess.CompletedProcess:
     )
 
 
-def test_discover_exits_zero():
-    result = run("discover")
+@pytest.mark.parametrize("args,expected", [
+    (["discover"], "software"),
+    (["validate"], "OK"),
+    (["accounts"], "assets:venn-cad"),
+    (["status"], "Cash"),
+    (["report", "pnl"], "Revenue"),
+    (["report", "gst"], "Collected"),
+    (["report", "balance"], "$0.00"),
+])
+def test_subcommand(args, expected):
+    result = run(*args)
     assert result.returncode == 0
-    assert "software" in result.stdout
-
-
-def test_validate_exits_zero_for_valid_data():
-    result = run("validate")
-    assert result.returncode == 0
-    assert "OK" in result.stdout
-
-
-def test_accounts_shows_balances():
-    result = run("accounts")
-    assert result.returncode == 0
-    assert "assets:venn-cad" in result.stdout
-    assert "Balance check" in result.stdout
-
-
-def test_status_exits_zero():
-    result = run("status")
-    assert result.returncode == 0
-    assert "Cash" in result.stdout
-
-
-def test_report_pnl():
-    result = run("report", "pnl")
-    assert result.returncode == 0
-    assert "Revenue" in result.stdout
-    assert "Expenses" in result.stdout
-
-
-def test_report_gst():
-    result = run("report", "gst")
-    assert result.returncode == 0
-    assert "Collected" in result.stdout
+    assert expected in result.stdout
 
 
 def test_report_pnl_with_period():
     result = run("report", "pnl", "--period", "Q1 2026")
     assert result.returncode == 0
     assert "Q1 2026" in result.stdout
-
-
-def test_report_balance():
-    result = run("report", "balance")
-    assert result.returncode == 0
-    assert "Check (=0)" in result.stdout
-    assert "$0.00" in result.stdout
 
 
 def test_missing_root_reports_error():

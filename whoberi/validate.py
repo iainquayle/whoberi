@@ -1,8 +1,7 @@
-import hashlib
 import re
 from decimal import Decimal
-from pathlib import Path
 
+from whoberi.hashing import row_hash
 from whoberi.types import Entry
 
 _COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
@@ -48,16 +47,11 @@ def _account_allowed(name: str, registry: list[str]) -> bool:
     return False
 
 
-def _row_hash(entry: Entry) -> str:
-    key = f"{entry.date}|{sorted(entry.accounts.items())}|{sorted(entry.meta.items())}"
-    return hashlib.sha256(key.encode()).hexdigest()
-
-
 def _detect_duplicates(entries: list[Entry]) -> list[str]:
     seen: dict[str, Entry] = {}
     errors = []
     for entry in entries:
-        h = _row_hash(entry)
+        h = row_hash({"date": str(entry.date), **entry.accounts, **entry.meta})
         if h in seen:
             prior = seen[h]
             errors.append(

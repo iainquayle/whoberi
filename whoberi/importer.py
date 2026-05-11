@@ -1,7 +1,8 @@
 """Bank CSV import — match rows to target ledger CSVs via pattern rules."""
 import csv
-import hashlib
 from pathlib import Path
+
+from whoberi.hashing import row_hash
 
 
 def import_bank_csv(
@@ -22,6 +23,9 @@ def import_bank_csv(
     matched = []
     unmatched = []
 
+    # Build per-target hash sets once to avoid re-reading CSVs per row
+    existing_hashes: dict[Path, set[str]] = {}
+
     for row in rows:
         description = row.get("description", "")
         target_ledger = _match_rule(description, rules)
@@ -31,11 +35,16 @@ def import_bank_csv(
             continue
 
         target_path = root / (target_ledger + ".csv")
-        if _is_duplicate(row, target_path):
+        if target_path not in existing_hashes:
+            existing_hashes[target_path] = {row_hash(r) for r in _read_csv(target_path)}
+
+        h = row_hash(row)
+        if h in existing_hashes[target_path]:
             matched.append(row)
             continue
 
         _append_row(row, target_path)
+        existing_hashes[target_path].add(h)
         matched.append(row)
 
     return matched, unmatched
@@ -49,22 +58,11 @@ def _match_rule(description: str, rules: dict[str, str]) -> str | None:
     return None
 
 
-def _row_hash(row: dict) -> str:
-    key = "|".join(f"{k}={v}" for k, v in sorted(row.items()))
-    return hashlib.sha256(key.encode()).hexdigest()
-
-
 def _read_csv(path: Path) -> list[dict]:
     if not path.exists():
         return []
     with open(path, newline="") as f:
         return list(csv.DictReader(f))
-
-
-def _is_duplicate(row: dict, target_path: Path) -> bool:
-    existing = _read_csv(target_path)
-    target_hash = _row_hash(row)
-    return any(_row_hash(r) == target_hash for r in existing)
 
 
 def _append_row(row: dict, target_path: Path) -> None:

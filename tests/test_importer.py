@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from whoberi.importer import import_bank_csv
+from whoberi.ledgers.importer import import_bank_csv
 from tests.conftest import CSV_FIELDS, write_csv
 
 RULES = {

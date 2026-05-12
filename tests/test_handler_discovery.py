@@ -1,6 +1,6 @@
 import pytest
 
-from whoberi.discover import discover
+from whoberi.ledgers.handler_discovery import discover
 from tests.conftest import FIXTURES
 
 BOOKS = FIXTURES / "books"

@@ -1,7 +1,7 @@
 import pytest
 
-from whoberi.discover import read_csv
-from whoberi.heal import heal_csv
+from whoberi.ledgers.handler_discovery import read_csv
+from whoberi.ledgers.heal import heal_csv
 from tests.conftest import CSV_FIELDS, write_csv
 
 

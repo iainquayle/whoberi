@@ -5,8 +5,8 @@ from decimal import Decimal
 
 from whoberi.accounts import AccountRegistry, AccountType
 from whoberi.aggregate import aggregate, check_balance
-from whoberi.report_context import ReportContext
-from whoberi.report_discovery import ReportDef
+from whoberi.reporting.reporter_context import ReporterContext
+from whoberi.reporting.reporter_discovery import ReporterDef
 from whoberi.types import Entry
 
 
@@ -26,8 +26,8 @@ def filter_as_of(entries: list[Entry], period: str | None) -> list[Entry]:
 
 def make_context(
     entries: list[Entry], registry: AccountRegistry, period: str | None
-) -> ReportContext:
-    return ReportContext(
+) -> ReporterContext:
+    return ReporterContext(
         combined=aggregate(filter_by_period(entries, period)),
         cumulative=aggregate(filter_as_of(entries, period)),
         registry=registry,
@@ -74,7 +74,7 @@ def _month_end(year: int, month: int) -> date:
     return date(year, month, last_day)
 
 
-def report_pnl(ctx: ReportContext) -> str:
+def report_pnl(ctx: ReporterContext) -> str:
     revenue = -ctx.sum_type(AccountType.INCOME)
     expenses = ctx.sum_type(AccountType.EXPENSE)
     net = revenue - expenses
@@ -89,7 +89,7 @@ def report_pnl(ctx: ReportContext) -> str:
     )
 
 
-def report_balance(ctx: ReportContext) -> str:
+def report_balance(ctx: ReporterContext) -> str:
     assets = ctx.sum_type_as_of(AccountType.ASSET)
     liabilities = ctx.sum_type_as_of(AccountType.LIABILITY)
     equity = ctx.sum_type_as_of(AccountType.EQUITY)
@@ -109,7 +109,7 @@ def report_balance(ctx: ReportContext) -> str:
     )
 
 
-def report_accounts(ctx: ReportContext) -> str:
+def report_accounts(ctx: ReporterContext) -> str:
     lines = [f"Accounts{ctx.period_suffix}", "─" * 40]
     for t in AccountType:
         accounts = {
@@ -126,8 +126,8 @@ def report_accounts(ctx: ReportContext) -> str:
     return "\n".join(lines)
 
 
-BUILTIN_REPORTS: dict[str, ReportDef] = {
-    name: ReportDef(name=name, description=desc, fn=fn, source="built-in")
+BUILTIN_REPORTERS: dict[str, ReporterDef] = {
+    name: ReporterDef(name=name, description=desc, fn=fn, source="built-in")
     for name, desc, fn in [
         ("accounts", "All accounts by category", report_accounts),
         ("balance", "Balance sheet", report_balance),

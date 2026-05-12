@@ -7,11 +7,11 @@ from pathlib import Path
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
-from whoberi.discover import discover, read_csv
-from whoberi.heal import heal_csv
-from whoberi.report_context import ReportContext
-from whoberi.report_discovery import build_registry, load_plugins
-from whoberi.reports import BUILTIN_REPORTS, make_context
+from whoberi.ledgers.handler_discovery import discover, read_csv
+from whoberi.ledgers.heal import heal_csv
+from whoberi.reporting.reporter_context import ReporterContext
+from whoberi.reporting.reporter_discovery import build_reporter_registry, load_reporters
+from whoberi.reporting.reports import BUILTIN_REPORTERS, make_context
 from whoberi.types import Entry
 from whoberi.validate import validate_column_names, validate_entries
 
@@ -78,7 +78,7 @@ def cmd_accounts(root: Path, _args) -> int:
 
 def cmd_status(root: Path, _args) -> int:
     _, combined, registry, _ = run_pipeline(root)
-    ctx = ReportContext(combined=combined, cumulative=combined, registry=registry, period=None)
+    ctx = ReporterContext(combined=combined, cumulative=combined, registry=registry, period=None)
     for t in AccountType:
         total = ctx.sum_type(t)
         print(f"  {t.value.capitalize():<14}  {ctx.fmt(total)}")
@@ -92,8 +92,8 @@ def cmd_report(root: Path, args) -> int:
     period = getattr(args, "period", None)
     report_type = args.type
 
-    custom = load_plugins(root / config["dirs"]["reports"])
-    all_reports = build_registry(BUILTIN_REPORTS, custom)
+    custom = load_reporters(root / config["dirs"]["reports"])
+    all_reports = build_reporter_registry(BUILTIN_REPORTERS, custom)
 
     if report_type == "list":
         width = max(len(n) for n in all_reports)

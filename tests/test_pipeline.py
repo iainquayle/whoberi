@@ -1,7 +1,7 @@
 """Integration test: discover -> process -> aggregate -> balance = 0."""
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
-from whoberi.discover import discover, read_csv
+from whoberi.ledgers.handler_discovery import discover, read_csv
 from tests.conftest import FIXTURES
 
 

@@ -2,7 +2,7 @@
 import csv
 from pathlib import Path
 
-from whoberi.discover import read_csv
+from whoberi.ledgers.handler_discovery import read_csv
 from whoberi.hashing import row_hash
 
 

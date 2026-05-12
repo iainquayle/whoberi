@@ -5,7 +5,7 @@ from whoberi.accounts import AccountRegistry, AccountType
 
 
 @dataclass(frozen=True)
-class ReportContext:
+class ReporterContext:
     combined: dict[str, Decimal]      # entries within period (or all if period is None)
     cumulative: dict[str, Decimal]    # entries with date <= period end (or all if period is None)
     registry: AccountRegistry

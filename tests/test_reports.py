@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from whoberi.reports import filter_by_period, make_context, report_balance, report_pnl
+from whoberi.reporting.reports import filter_as_of, filter_by_period, make_context, report_accounts, report_balance, report_pnl
 from tests.conftest import FULL_REGISTRY, SAMPLE_ENTRIES, make_entry
 
 
@@ -23,11 +23,21 @@ def test_filter_none_returns_all():
     assert filter_by_period(SAMPLE_ENTRIES, None) == SAMPLE_ENTRIES
 
 
+def test_filter_as_of():
+    assert len(filter_as_of(SAMPLE_ENTRIES, "Q1 2026")) == 4
+
+
+def test_invalid_period_raises():
+    with pytest.raises(ValueError, match="Cannot parse period"):
+        filter_by_period(SAMPLE_ENTRIES, "not-a-period")
+
+
 # ─── Built-in reports ─────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("report_fn,expected_substrings", [
     (report_pnl, ["$4,646.02", "$5,139.38"]),
     (report_balance, ["$493.36", "$0.00"]),
+    (report_accounts, ["[income]", "[expense]", "fooco", "salary"]),
 ])
 def test_report_q1(report_fn, expected_substrings):
     ctx = make_context(SAMPLE_ENTRIES, FULL_REGISTRY, "Q1 2026")

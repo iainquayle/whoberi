@@ -1,6 +1,8 @@
 # whoberi
 
-Plugin-based double-entry accounting CLI for a one-person Canadian software corp. Stdlib only, Python 3.11+.
+Plain-CSV double-entry bookkeeping driven by Python handler plugins. Your ledger logic lives in your repo, not inside the tool. Stdlib only, Python 3.11+.
+
+> *Balanced, as all things should be.* - Thanos
 
 ## Install
 
@@ -10,26 +12,25 @@ pip install -e .
 
 Exposes the `whoberi` console script.
 
-## Books directory layout
+## Project layout (example)
 
 ```
 <root>/
   config.toml
-  books/           # [dirs].ledgers — every *.csv here is a ledger
-    income/    *.csv  *.py          # each csv has a same-stem handler
-    expenses/  *.csv  *.py
-      recurring/ *.csv  *.py
-      travel/    *.csv  *.py
-    payroll/   *.csv  *.py
-    draws/     *.csv  *.py
-  imports/         # [dirs].imports — raw bank CSVs
-  reports/         # [dirs].reports — report plugin *.py files
+  books/           # [dirs].ledgers
+    foo.csv
+    foo.py         # same-stem handler
+    bar/
+      baz.csv
+      baz.py
+  imports/         # [dirs].imports
+  reports/         # [dirs].reports
 ```
 
 - Every `*.csv` under the ledgers directory is a ledger.
 - Each ledger requires a same-stem handler: `foo.csv` ↔ `foo.py` in the same directory. Missing or unpaired files raise an error.
 - CSV stem becomes the account namespace: `income/fooco.csv` → `income:fooco`.
-- Directory names are configured in `config.toml` under `[dirs]` — see below.
+- Directory names are configured in `config.toml` under `[dirs]` (see below).
 
 ## CLI
 
@@ -56,9 +57,9 @@ from decimal import Decimal
 def process(rows: list[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]: ...
 ```
 
-- `Entry(date, accounts: dict[str, Decimal])` — `accounts` must sum to zero (double-entry invariant).
-- Account names: bare hyphen-segmented strings — e.g. `venn-cad`, `hst-collected`. No colon prefix. Type comes from the `[accounts]` registry in `config.toml`.
-- Every account name emitted must appear in `[accounts]`. Unknown names raise `unknown account '<name>'` at validate time. There are no wildcards or defaults — every account must be enumerated.
+- `Entry(date, accounts: dict[str, Decimal])`: `accounts` must sum to zero (double-entry invariant).
+- Account names: bare hyphen-segmented strings, e.g. `venn-cad`, `hst-collected`. No colon prefix. Type comes from the `[accounts]` registry in `config.toml`.
+- Every account name emitted must appear in `[accounts]`. Unknown names raise `unknown account '<name>'` at validate time. There are no wildcards or defaults; every account must be enumerated.
 - Sign: `+` debit, `−` credit.
 - Reference implementations: `tests/fixtures/`.
 
@@ -81,7 +82,7 @@ equity    = ["draws", "retained-earnings"]
 income    = ["fooco", "barco"]
 expense   = ["salary", "software", "recurring"]
 
-as_of = "2026-01-01"                                     # optional; pins "today" for recurring
+as_of = "2026-01-01"                                     # optional; pins "today" for handlers that need a reference date
 
 [consts.tax]
 hst_rate = 0.13
@@ -93,10 +94,13 @@ cpp = 300.00
 ei = 150.00
 ```
 
+## Git
+
+Store your books in a git repo. The pipeline rewrites CSVs in place (dedup + sort by date); commit before running on real data.
+
 ## Caveats
 
-- Pipeline commands **rewrite CSVs in place**: dedup by row hash and sort by `date`. Commit your books before running on real data.
-- Handlers are user-supplied — none ship with the package.
+- Handlers are user-supplied; none ship with the package.
 
 ## More
 

@@ -1,5 +1,6 @@
 """Integration test: discover -> process -> aggregate -> balance = 0."""
-from whoberi.aggregate import aggregate, check_balance
+from whoberi.accounts import load_registry
+from whoberi.aggregate import aggregate, check_balance, is_balanced
 from whoberi.config import load_config
 from whoberi.ledgers.csv_io import read_csv
 from whoberi.ledgers.handler_discovery import discover
@@ -8,6 +9,7 @@ from tests.conftest import FIXTURES
 
 def run_pipeline(root):
     config = load_config(root)
+    registry = load_registry(config)
     ledgers_root = root / config["dirs"]["ledgers"]
     ledgers = discover(ledgers_root)
     entries = []
@@ -15,11 +17,11 @@ def run_pipeline(root):
         rows = list(read_csv(csv_path))
         entries.extend(handler.process(rows, config, meta))
     combined = aggregate(entries)
-    return entries, combined
+    return entries, combined, registry
 
 
 def test_pipeline_all_entries_balanced():
-    entries, combined = run_pipeline(FIXTURES)
+    entries, combined, registry = run_pipeline(FIXTURES)
     assert len(entries) > 0
-    assert all(e.balanced for e in entries)
-    assert check_balance(combined) == 0
+    assert all(is_balanced(e, registry) for e in entries)
+    assert check_balance(combined, registry) == 0

@@ -9,6 +9,13 @@ class AccountType(StrEnum):
     EXPENSE = "expense"
 
 
+_DEBIT_NORMAL = {AccountType.ASSET, AccountType.EXPENSE}
+
+
+def sign_of_type(t: AccountType) -> int:
+    return 1 if t in _DEBIT_NORMAL else -1
+
+
 class AccountRegistry:
     def __init__(self, explicit: dict[AccountType, set[str]]):
         self._by_name: dict[str, AccountType] = {
@@ -19,6 +26,9 @@ class AccountRegistry:
         if name not in self._by_name:
             raise KeyError(f"Unknown account '{name}' — add it to [accounts] in config.toml")
         return self._by_name[name]
+
+    def sign_of(self, name: str) -> int:
+        return sign_of_type(self.type_of(name))
 
     def is_known(self, name: str) -> bool:
         return name in self._by_name

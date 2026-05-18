@@ -81,14 +81,14 @@ def cmd_heal(root: Path, _args) -> int:
 
 
 def cmd_accounts(root: Path, _args) -> int:
-    _, combined, _, _ = run_pipeline(root)
+    _, combined, registry, _ = run_pipeline(root)
     if not combined:
         print("No accounts.")
         return 0
     width = max(len(k) for k in combined)
     for account in sorted(combined):
         print(f"  {account:<{width}}  {combined[account]:>12.2f}")
-    off = check_balance(combined)
+    off = check_balance(combined, registry)
     print(f"\n  {'Balance check':<{width}}  {off:>12.2f}")
     return 0
 
@@ -99,7 +99,7 @@ def cmd_status(root: Path, _args) -> int:
     for t in AccountType:
         total = ctx.sum_type(t)
         print(f"  {t.value.capitalize():<14}  {ctx.fmt(total)}")
-    off = check_balance(combined)
+    off = check_balance(combined, registry)
     print(f"\n  Balance:          {ctx.fmt(off)}")
     return 0
 

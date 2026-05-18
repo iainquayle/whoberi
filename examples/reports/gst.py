@@ -5,7 +5,7 @@ DESCRIPTION = "GST/HST collected vs. paid"
 
 
 def report(ctx) -> str:
-    collected = -ctx.combined.get("hst-collected", Decimal("0"))
+    collected = ctx.combined.get("hst-collected", Decimal("0"))
     paid = ctx.combined.get("hst-paid", Decimal("0"))
     return ctx.render(
         [

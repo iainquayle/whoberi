@@ -55,20 +55,24 @@ from decimal import Decimal
 from whoberi.types import Entry
 
 def process(rows, config, meta):
-    for r in rows:
-        amount = Decimal(r["amount"])
-        yield Entry(
-            date=date.fromisoformat(r["date"]),
-            accounts={"cash": amount, meta.name: -amount},
-        )
+    return map(_row_to_entry, rows)
+
+def _row_to_entry(row):
+    amount = Decimal(row["amount"])
+    return Entry(
+        date=date.fromisoformat(row["date"]),
+        accounts={"cash": amount, "sales": amount},
+    )
 ```
+
+Both amounts are positive: `cash` is an asset (added to the balance), `sales` is income (subtracted). Type rule gives `+1000 − 1000 = 0`. See *Handler contract* below.
 
 ```
 whoberi validate           # OK — 1 entries, all balanced.
-whoberi report accounts    # cash $1,000.00 / sales $-1,000.00
+whoberi report accounts    # cash $1,000.00 / sales $1,000.00
 ```
 
-See `examples/` for richer handlers (HST split, payroll from config) and custom reporters.
+See `examples/` for richer handlers (HST split, payroll from config, `meta.name` to derive the income account from the CSV stem) and custom reporters.
 
 ## Project layout (example)
 
@@ -117,10 +121,10 @@ from decimal import Decimal
 def process(rows: list[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]: ...
 ```
 
-- `Entry(date, accounts: dict[str, Decimal])`: `accounts` must sum to zero (double-entry invariant).
+- `Entry(date, accounts: dict[str, Decimal])`: values are magnitudes — usually positive. A value is negative only when an account actually *decreased* (e.g. cash paid out, liability paid down).
 - Account names: bare hyphen-segmented strings, e.g. `venn-cad`, `hst-collected`. No colon prefix. Type comes from the `[accounts]` registry in `config.toml`.
 - Every account name emitted must appear in `[accounts]`. Unknown names raise `unknown account '<name>'` at validate time. There are no wildcards or defaults; every account must be enumerated.
-- Sign: `+` debit, `−` credit.
+- Balance rule: each account contributes to the per-entry sum with a sign determined by its type — `asset` and `expense` add; `liability`, `equity`, and `income` subtract. The signed sum must be zero. (A $1000 cash sale: `cash` +1000 (asset, added) and `sales` +1000 (income, subtracted) → 0. An expense paid in cash: `software` +100 (expense, added) and `cash` -100 (asset went down, added) → 0.)
 - Reference implementations: `examples/`.
 
 ## config.toml

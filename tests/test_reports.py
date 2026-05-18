@@ -36,7 +36,7 @@ def test_invalid_period_raises():
 
 @pytest.mark.parametrize("report_fn,expected_substrings", [
     (report_pnl, ["$4,646.02", "$5,139.38"]),
-    (report_balance, ["$493.36", "$0.00"]),
+    (report_balance, ["$-493.36", "$0.00"]),
     (report_accounts, ["[income]", "[expense]", "fooco", "salary"]),
 ])
 def test_report_q1(report_fn, expected_substrings):
@@ -55,13 +55,13 @@ def test_balance_sheet_balances():
 def test_balance_sheet_date_filter():
     q1 = report_balance(make_context(SAMPLE_ENTRIES, FULL_REGISTRY, "Q1 2026"))
     all_time = report_balance(make_context(SAMPLE_ENTRIES, FULL_REGISTRY, None))
-    assert "$493.36" in q1
-    assert "$493.36" not in all_time
+    assert "$-493.36" in q1
+    assert "$-493.36" not in all_time
 
 
 def test_balance_uses_cumulative_not_period_filter():
-    pre_period = make_entry({"venn-cad": Decimal("1000"), "fooco": Decimal("-1000")}, d=date(2025, 6, 1))
-    in_period = make_entry({"venn-cad": Decimal("500"), "fooco": Decimal("-500")}, d=date(2026, 1, 15))
+    pre_period = make_entry({"venn-cad": Decimal("1000"), "fooco": Decimal("1000")}, d=date(2025, 6, 1))
+    in_period = make_entry({"venn-cad": Decimal("500"), "fooco": Decimal("500")}, d=date(2026, 1, 15))
     entries = [pre_period, in_period]
 
     ctx = make_context(entries, FULL_REGISTRY, "Q1 2026")

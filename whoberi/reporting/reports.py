@@ -77,7 +77,7 @@ def _month_end(year: int, month: int) -> date:
 
 
 def report_pnl(ctx: ReporterContext) -> str:
-    revenue = -ctx.sum_type(AccountType.INCOME)
+    revenue = ctx.sum_type(AccountType.INCOME)
     expenses = ctx.sum_type(AccountType.EXPENSE)
     net = revenue - expenses
     return ctx.render(
@@ -95,8 +95,8 @@ def report_balance(ctx: ReporterContext) -> str:
     assets = ctx.sum_type_as_of(AccountType.ASSET)
     liabilities = ctx.sum_type_as_of(AccountType.LIABILITY)
     equity = ctx.sum_type_as_of(AccountType.EQUITY)
-    net_income = ctx.sum_type_as_of(AccountType.INCOME) + ctx.sum_type_as_of(AccountType.EXPENSE)
-    check = check_balance(ctx.cumulative)
+    net_income = ctx.sum_type_as_of(AccountType.INCOME) - ctx.sum_type_as_of(AccountType.EXPENSE)
+    check = check_balance(ctx.cumulative, ctx.registry)
     title = f"Balance Sheet as of end of {ctx.period}" if ctx.period else "Balance Sheet"
     return ctx.render(
         [

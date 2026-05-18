@@ -2,6 +2,7 @@ import re
 from collections.abc import Iterable
 
 from whoberi.accounts import AccountRegistry
+from whoberi.aggregate import check_balance
 from whoberi.hashing import row_hash
 from whoberi.types import Entry
 
@@ -10,15 +11,13 @@ _COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 def validate_entry(entry: Entry, registry: AccountRegistry) -> list[str]:
     errors = []
-
-    if not entry.balanced:
-        off = sum(entry.accounts.values())
-        errors.append(f"{entry.date} '{entry.meta.get('description', '')}': accounts off by {off}")
-
-    for name in entry.accounts:
-        if not registry.is_known(name):
-            errors.append(f"{entry.date} '{entry.meta.get('description', '')}': unknown account '{name}'")
-
+    unknown = [name for name in entry.accounts if not registry.is_known(name)]
+    for name in unknown:
+        errors.append(f"{entry.date} '{entry.meta.get('description', '')}': unknown account '{name}'")
+    if not unknown:
+        off = check_balance(entry.accounts, registry)
+        if off != 0:
+            errors.append(f"{entry.date} '{entry.meta.get('description', '')}': accounts off by {off}")
     return errors
 
 

@@ -16,7 +16,3 @@ class Entry:
     date: date
     accounts: dict[str, Decimal]
     meta: dict[str, str] = field(default_factory=dict)
-
-    @property
-    def balanced(self) -> bool:
-        return sum(self.accounts.values()) == Decimal("0")

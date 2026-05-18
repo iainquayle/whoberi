@@ -7,11 +7,12 @@ from tests.conftest import FULL_REGISTRY, make_entry
 
 
 # --- Per-entry balance ---
+# venn-cad: asset (+); fooco: income (-). Sale: both positive, type-weighted sum = 0.
 
 @pytest.mark.parametrize("accounts,expected_errors,error_substring", [
-    ({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, 0, None),
-    ({"venn-cad": Decimal("100"), "fooco": Decimal("-99")}, 1, "off by"),
-    ({"venn-cad": Decimal("100.001"), "fooco": Decimal("-100")}, 1, "off by"),
+    ({"venn-cad": Decimal("100"), "fooco": Decimal("100")}, 0, None),
+    ({"venn-cad": Decimal("100"), "fooco": Decimal("99")}, 1, "off by"),
+    ({"venn-cad": Decimal("100.001"), "fooco": Decimal("100")}, 1, "off by"),
 ])
 def test_validate_entry_balance(accounts, expected_errors, error_substring):
     errors = validate_entry(make_entry(accounts), FULL_REGISTRY)
@@ -36,14 +37,14 @@ def test_account_registry(accounts, expected_error):
 # --- Duplicate detection ---
 
 def test_duplicate_detected():
-    e1 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, desc="same")
-    e2 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, desc="same")
+    e1 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("100")}, desc="same")
+    e2 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("100")}, desc="same")
     assert any("Duplicate" in err for err in validate_entries([e1, e2], FULL_REGISTRY))
 
 
 def test_different_entries_not_duplicate():
-    e1 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("-100")}, desc="one")
-    e2 = make_entry({"venn-cad": Decimal("200"), "fooco": Decimal("-200")}, desc="two")
+    e1 = make_entry({"venn-cad": Decimal("100"), "fooco": Decimal("100")}, desc="one")
+    e2 = make_entry({"venn-cad": Decimal("200"), "fooco": Decimal("200")}, desc="two")
     assert validate_entries([e1, e2], FULL_REGISTRY) == []
 
 

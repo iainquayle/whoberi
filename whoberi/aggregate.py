@@ -2,6 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from decimal import Decimal
 
+from whoberi.accounts import AccountRegistry
 from whoberi.types import Entry
 
 
@@ -13,5 +14,13 @@ def aggregate(entries: Iterable[Entry]) -> dict[str, Decimal]:
     return combined
 
 
-def check_balance(combined: dict[str, Decimal]) -> Decimal:
-    return sum(combined.values(), Decimal("0"))
+def check_balance(amounts: dict[str, Decimal], registry: AccountRegistry) -> Decimal:
+    """Type-weighted sum: asset/expense add, liability/equity/income subtract. Zero == balanced."""
+    return sum(
+        (amount * registry.sign_of(name) for name, amount in amounts.items()),
+        Decimal("0"),
+    )
+
+
+def is_balanced(entry: Entry, registry: AccountRegistry) -> bool:
+    return check_balance(entry.accounts, registry) == 0

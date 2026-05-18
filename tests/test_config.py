@@ -53,3 +53,15 @@ def test_valid_config_accepted(tmp_path, toml_content):
     (tmp_path / "config.toml").write_text(toml_content)
     config = load_config(tmp_path)
     assert isinstance(config, dict)
+
+
+@pytest.mark.parametrize("toml_content,match", [
+    ('as_of = 42\n' + _VALID_DIRS, "as_of must be"),
+    ('as_of = "not-a-date"\n' + _VALID_DIRS, "as_of is not a valid"),
+    ('as_of = "2026-13-01"\n' + _VALID_DIRS, "as_of is not a valid"),
+    ('consts = "string"\n' + _VALID_DIRS, r"\[consts\] must be a table"),
+])
+def test_invalid_optional_keys_raise(tmp_path, toml_content, match):
+    (tmp_path / "config.toml").write_text(toml_content)
+    with pytest.raises(ValueError, match=match):
+        load_config(tmp_path)

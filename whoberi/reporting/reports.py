@@ -1,5 +1,6 @@
 import calendar
 import re
+from collections.abc import Iterable, Iterator
 from datetime import date
 from decimal import Decimal
 
@@ -10,23 +11,30 @@ from whoberi.reporting.reporter_discovery import ReporterDef
 from whoberi.types import Entry
 
 
-def filter_by_period(entries: list[Entry], period: str | None) -> list[Entry]:
+def filter_by_period(entries: Iterable[Entry], period: str | None) -> Iterator[Entry]:
     if period is None:
-        return entries
+        yield from entries
+        return
     start, end = _parse_period(period)
-    return [e for e in entries if start <= e.date <= end]
+    for e in entries:
+        if start <= e.date <= end:
+            yield e
 
 
-def filter_as_of(entries: list[Entry], period: str | None) -> list[Entry]:
+def filter_as_of(entries: Iterable[Entry], period: str | None) -> Iterator[Entry]:
     if period is None:
-        return entries
+        yield from entries
+        return
     _, end = _parse_period(period)
-    return [e for e in entries if e.date <= end]
+    for e in entries:
+        if e.date <= end:
+            yield e
 
 
 def make_context(
     entries: list[Entry], registry: AccountRegistry, period: str | None
 ) -> ReporterContext:
+    # entries stays a list because both filters are applied to the same source.
     return ReporterContext(
         combined=aggregate(filter_by_period(entries, period)),
         cumulative=aggregate(filter_as_of(entries, period)),

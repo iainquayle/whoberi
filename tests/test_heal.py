@@ -1,9 +1,13 @@
+from datetime import date
+
 import pytest
 
-from whoberi.ledgers.handler_discovery import read_csv
-from whoberi.ledgers.heal import heal_csv
+from whoberi.ledgers.csv_io import read_csv
+from whoberi.ledgers.heal import heal, heal_file
 from tests.conftest import CSV_FIELDS, write_csv
 
+
+# --- Pure heal ---
 
 @pytest.mark.parametrize("rows,expected_dates", [
     (
@@ -22,53 +26,86 @@ from tests.conftest import CSV_FIELDS, write_csv
         ["2026-01-01", "2026-02-01", "2026-03-01"],
     ),
 ])
-def test_out_of_order_sorted(tmp_path, rows, expected_dates):
-    path = tmp_path / "ledger.csv"
-    write_csv(path, CSV_FIELDS, rows)
-    logs = heal_csv(path)
-    assert any("sorted" in msg for msg in logs)
-    result = read_csv(path)
-    assert [r["date"] for r in result] == expected_dates
+def test_heal_sorts(rows, expected_dates):
+    healed, logs = heal(rows)
+    healed_list = list(healed)
+    assert any("sorted" in m for m in logs)
+    assert [r["date"] for r in healed_list] == expected_dates
 
 
-def test_duplicate_removed(tmp_path):
-    path = tmp_path / "ledger.csv"
+def test_heal_removes_duplicates():
     row = {"date": "2026-01-01", "description": "AWS", "amount": "100"}
-    write_csv(path, CSV_FIELDS, [row, row])
-    logs = heal_csv(path)
-    assert any("duplicate" in msg for msg in logs)
-    assert len(read_csv(path)) == 1
+    healed, logs = heal([row, row])
+    assert any("duplicate" in m for m in logs)
+    assert len(list(healed)) == 1
 
 
-def test_clean_csv_unchanged(tmp_path):
-    path = tmp_path / "ledger.csv"
+def test_heal_clean_input_no_logs():
     rows = [
         {"date": "2026-01-01", "description": "A", "amount": "10"},
         {"date": "2026-02-01", "description": "B", "amount": "20"},
     ]
-    write_csv(path, CSV_FIELDS, rows)
-    original_mtime = path.stat().st_mtime
-    logs = heal_csv(path)
+    healed, logs = heal(rows)
     assert logs == []
-    assert path.stat().st_mtime == original_mtime
+    assert list(healed) == rows
 
 
-def test_duplicate_and_out_of_order(tmp_path):
+def test_heal_empty_input():
+    healed, logs = heal([])
+    assert logs == []
+    assert list(healed) == []
+
+
+def test_heal_accepts_iterable():
+    """heal should work on a generator, not just a list."""
+    def gen():
+        yield {"date": "2026-02-01", "description": "B", "amount": "20"}
+        yield {"date": "2026-01-01", "description": "A", "amount": "10"}
+    healed, logs = heal(gen())
+    assert [r["date"] for r in healed] == ["2026-01-01", "2026-02-01"]
+    assert any("sorted" in m for m in logs)
+
+
+# --- heal_file (IO orchestrator) ---
+
+def test_heal_file_writes_when_changed(tmp_path):
     path = tmp_path / "ledger.csv"
-    row_b = {"date": "2026-02-01", "description": "B", "amount": "20"}
-    row_a = {"date": "2026-01-01", "description": "A", "amount": "10"}
-    write_csv(path, CSV_FIELDS, [row_b, row_a, row_b])
-    logs = heal_csv(path)
-    assert any("duplicate" in msg for msg in logs)
-    assert any("sorted" in msg for msg in logs)
-    result = read_csv(path)
-    assert len(result) == 2
-    assert result[0]["date"] == "2026-01-01"
-    assert result[1]["date"] == "2026-02-01"
+    write_csv(path, CSV_FIELDS, [
+        {"date": "2026-02-01", "description": "B", "amount": "20"},
+        {"date": "2026-01-01", "description": "A", "amount": "10"},
+    ])
+    logs = heal_file(path)
+    assert logs and "sorted" in logs[0]
+    result = list(read_csv(path))
+    assert [r["date"] for r in result] == ["2026-01-01", "2026-02-01"]
 
 
-def test_missing_date_raises(tmp_path):
+def test_heal_file_clean_no_rewrite(tmp_path):
+    path = tmp_path / "ledger.csv"
+    write_csv(path, CSV_FIELDS, [
+        {"date": "2026-01-01", "description": "A", "amount": "10"},
+        {"date": "2026-02-01", "description": "B", "amount": "20"},
+    ])
+    mtime = path.stat().st_mtime
+    assert heal_file(path) == []
+    assert path.stat().st_mtime == mtime
+
+
+def test_heal_file_missing_path_no_op(tmp_path):
+    assert heal_file(tmp_path / "missing.csv") == []
+
+
+def test_heal_file_missing_date_raises(tmp_path):
     path = tmp_path / "ledger.csv"
     write_csv(path, ["description", "amount"], [{"description": "AWS", "amount": "100"}])
     with pytest.raises(KeyError):
-        heal_csv(path)
+        heal_file(path)
+
+
+def test_heal_rejects_non_iso_date():
+    rows = [
+        {"date": "01/15/2026", "description": "A", "amount": "10"},
+        {"date": "01/01/2026", "description": "B", "amount": "20"},
+    ]
+    with pytest.raises(ValueError, match="not ISO 8601"):
+        heal(rows)

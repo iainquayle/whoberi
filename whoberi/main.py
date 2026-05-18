@@ -7,8 +7,9 @@ from pathlib import Path
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
-from whoberi.ledgers.handler_discovery import discover, read_csv
-from whoberi.ledgers.heal import heal_csv
+from whoberi.ledgers.csv_io import read_csv
+from whoberi.ledgers.handler_discovery import discover
+from whoberi.ledgers.heal import heal_file
 from whoberi.reporting.reporter_context import ReporterContext
 from whoberi.reporting.reporter_discovery import build_reporter_registry, load_reporters
 from whoberi.reporting.reports import BUILTIN_REPORTERS, make_context
@@ -21,13 +22,11 @@ def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal], AccountRe
     registry = load_registry(config)
     ledgers_root = root / config["dirs"]["ledgers"]
     ledgers = discover(ledgers_root)
-    entries = []
+    entries: list[Entry] = []
     for csv_path, handler, meta in ledgers:
-        for msg in heal_csv(csv_path):
-            print(msg, file=sys.stderr)
-        rows = read_csv(csv_path)
+        rows = list(read_csv(csv_path))
         if rows:
-            bad_cols = validate_column_names(list(rows[0].keys()))
+            bad_cols = validate_column_names(rows[0].keys())
             if bad_cols:
                 raise ValueError(f"{csv_path}: invalid column names: {bad_cols}")
         ledger_key = str(csv_path.relative_to(ledgers_root).with_suffix(""))
@@ -36,6 +35,15 @@ def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal], AccountRe
             entries.append(entry)
     combined = aggregate(entries)
     return entries, combined, registry, config
+
+
+def heal_ledgers(root: Path) -> list[str]:
+    config = load_config(root)
+    ledgers_root = root / config["dirs"]["ledgers"]
+    logs: list[str] = []
+    for csv_path, _, _ in discover(ledgers_root):
+        logs.extend(heal_file(csv_path))
+    return logs
 
 
 def cmd_discover(root: Path, _args) -> int:
@@ -60,6 +68,15 @@ def cmd_validate(root: Path, _args) -> int:
             print(f"ERROR: {err}", file=sys.stderr)
         return 1
     print(f"OK — {len(entries)} entries, all balanced.")
+    return 0
+
+
+def cmd_heal(root: Path, _args) -> int:
+    logs = heal_ledgers(root)
+    for msg in logs:
+        print(msg)
+    if not logs:
+        print("No changes.")
     return 0
 
 
@@ -105,17 +122,24 @@ def cmd_report(root: Path, args) -> int:
             print(f"  {name:<{width}}  {rd.description}{src}")
         return 0
 
+    validation_errors = validate_entries(entries, registry)
+    if validation_errors:
+        for err in validation_errors:
+            print(f"ERROR: {err}", file=sys.stderr)
+        return 1
+
     ctx = make_context(entries, registry, period)
 
     if report_type == "all":
+        failed: list[str] = []
         for name in sorted(all_reports):
             try:
                 print(all_reports[name].fn(ctx))
                 print()
             except (ValueError, KeyError) as e:
                 print(f"ERROR in report '{name}': {e}", file=sys.stderr)
-                return 1
-        return 0
+                failed.append(name)
+        return 1 if failed else 0
 
     if report_type not in all_reports:
         available = ", ".join(sorted(all_reports))
@@ -165,6 +189,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("discover", help="List detected CSVs and resolved handlers")
     sub.add_parser("validate", help="Run all validation checks")
+    sub.add_parser("heal", help="Sort and deduplicate ledger CSVs in place")
     sub.add_parser("accounts", help="Print combined account balances")
     sub.add_parser("status", help="Quick summary of balances by account type")
 
@@ -191,6 +216,7 @@ def cli() -> None:
     commands = {
         "discover": cmd_discover,
         "validate": cmd_validate,
+        "heal": cmd_heal,
         "accounts": cmd_accounts,
         "status": cmd_status,
         "report": cmd_report,

@@ -1,7 +1,8 @@
 """Integration test: discover -> process -> aggregate -> balance = 0."""
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
-from whoberi.ledgers.handler_discovery import discover, read_csv
+from whoberi.ledgers.csv_io import read_csv
+from whoberi.ledgers.handler_discovery import discover
 from tests.conftest import FIXTURES
 
 
@@ -11,7 +12,7 @@ def run_pipeline(root):
     ledgers = discover(ledgers_root)
     entries = []
     for csv_path, handler, meta in ledgers:
-        rows = read_csv(csv_path)
+        rows = list(read_csv(csv_path))
         entries.extend(handler.process(rows, config, meta))
     combined = aggregate(entries)
     return entries, combined

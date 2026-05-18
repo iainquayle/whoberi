@@ -5,6 +5,8 @@ from typing import Callable
 
 from whoberi.reporting.reporter_context import ReporterContext
 
+RESERVED_REPORT_NAMES = {"list", "all"}
+
 
 @dataclass(frozen=True)
 class ReporterDef:
@@ -31,6 +33,18 @@ def load_reporters(reports_dir: Path) -> dict[str, ReporterDef]:
             if not hasattr(mod, attr):
                 raise ValueError(f"{path}: missing required attribute '{attr}'")
         name = mod.NAME
+        if not isinstance(name, str):
+            raise ValueError(f"{path}: NAME must be a string, got {type(name).__name__}")
+        if not isinstance(mod.DESCRIPTION, str):
+            raise ValueError(
+                f"{path}: DESCRIPTION must be a string, got {type(mod.DESCRIPTION).__name__}"
+            )
+        if not callable(mod.report):
+            raise ValueError(f"{path}: report must be callable, got {type(mod.report).__name__}")
+        if name in RESERVED_REPORT_NAMES:
+            raise ValueError(
+                f"{path}: NAME '{name}' is reserved (used as a CLI sentinel by `report list` / `report all`)"
+            )
         if name in plugins:
             raise ValueError(
                 f"Duplicate report name '{name}': {plugins[name].source} and {path}"

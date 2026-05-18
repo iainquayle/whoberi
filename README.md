@@ -42,6 +42,7 @@ whoberi [--root <dir>] <cmd>   # default root = .
 |---|---|
 | `discover` | list ledgers and resolved handler paths |
 | `validate` | run pipeline; check zero-sum / account-registry / duplicates; non-zero exit on error |
+| `heal` | sort and deduplicate ledger CSVs in place |
 | `accounts` | print aggregated balances + global zero-sum |
 | `status` | print balances by account type + zero-sum check |
 | `report <name\|list\|all> [--period "Q1 2026"\|2026-01\|2026]` | run a report; built-ins: `accounts`, `balance`, `pnl`; use `report list` to see all |
@@ -96,7 +97,7 @@ ei = 150.00
 
 ## Git
 
-Store your books in a git repo. The pipeline rewrites CSVs in place (dedup + sort by date); commit before running on real data.
+Store your books in a git repo. `whoberi heal` rewrites CSVs in place (dedup + sort by date); commit before running it on real data. Other commands read but never write.
 
 ## Caveats
 

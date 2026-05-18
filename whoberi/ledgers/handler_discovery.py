@@ -1,4 +1,3 @@
-import csv
 import importlib.util
 from pathlib import Path
 from types import ModuleType
@@ -55,8 +54,3 @@ def _load_handler(csv_path: Path, ledgers_root: Path) -> ModuleType:
         rel = handler_path.relative_to(ledgers_root)
         raise ValueError(f"Failed to load handler '{rel}': {type(e).__name__}: {e}") from e
     return module
-
-
-def read_csv(csv_path: Path) -> list[dict]:
-    with open(csv_path, newline="") as f:
-        return list(csv.DictReader(f))

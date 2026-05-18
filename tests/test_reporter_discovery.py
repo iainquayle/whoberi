@@ -47,3 +47,27 @@ def test_fixture_reporter_values(report_name, expected_substrings):
     out = reporters[report_name].fn(ctx)
     for s in expected_substrings:
         assert s in out
+
+
+@pytest.mark.parametrize("reserved", ["list", "all"])
+def test_reporter_with_reserved_name_raises(tmp_path, reserved):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "bad.py").write_text(
+        f'NAME = "{reserved}"\nDESCRIPTION = "x"\ndef report(ctx): return ""\n'
+    )
+    with pytest.raises(ValueError, match="reserved"):
+        load_reporters(reports_dir)
+
+
+@pytest.mark.parametrize("source,match", [
+    ('NAME = 42\nDESCRIPTION = "x"\ndef report(ctx): return ""\n', "NAME must be a string"),
+    ('NAME = "x"\nDESCRIPTION = 42\ndef report(ctx): return ""\n', "DESCRIPTION must be a string"),
+    ('NAME = "x"\nDESCRIPTION = "x"\nreport = 42\n', "report must be callable"),
+])
+def test_reporter_attribute_type_checks(tmp_path, source, match):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    (reports_dir / "bad.py").write_text(source)
+    with pytest.raises(ValueError, match=match):
+        load_reporters(reports_dir)

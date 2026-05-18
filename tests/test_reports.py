@@ -16,20 +16,20 @@ from tests.conftest import FULL_REGISTRY, SAMPLE_ENTRIES, make_entry
     ("2026", 5),
 ])
 def test_filter_by_period(period, expected_count):
-    assert len(filter_by_period(SAMPLE_ENTRIES, period)) == expected_count
+    assert len(list(filter_by_period(SAMPLE_ENTRIES, period))) == expected_count
 
 
 def test_filter_none_returns_all():
-    assert filter_by_period(SAMPLE_ENTRIES, None) == SAMPLE_ENTRIES
+    assert list(filter_by_period(SAMPLE_ENTRIES, None)) == SAMPLE_ENTRIES
 
 
 def test_filter_as_of():
-    assert len(filter_as_of(SAMPLE_ENTRIES, "Q1 2026")) == 4
+    assert len(list(filter_as_of(SAMPLE_ENTRIES, "Q1 2026"))) == 4
 
 
 def test_invalid_period_raises():
     with pytest.raises(ValueError, match="Cannot parse period"):
-        filter_by_period(SAMPLE_ENTRIES, "not-a-period")
+        list(filter_by_period(SAMPLE_ENTRIES, "not-a-period"))
 
 
 # ─── Built-in reports ─────────────────────────────────────────────────────────

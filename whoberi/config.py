@@ -1,4 +1,5 @@
 import tomllib
+from datetime import date
 from pathlib import Path
 
 _ALLOWED_KEYS = {"accounts", "as_of", "consts", "dirs"}
@@ -27,4 +28,14 @@ def load_config(root: Path) -> dict:
     for k in _DIRS_KEYS:
         if not isinstance(dirs[k], str):
             raise ValueError(f"[dirs].{k} must be a string, got {type(dirs[k]).__name__}")
+    if "as_of" in config:
+        as_of = config["as_of"]
+        if not isinstance(as_of, str):
+            raise ValueError(f"as_of must be an ISO date string (YYYY-MM-DD), got {type(as_of).__name__}")
+        try:
+            date.fromisoformat(as_of)
+        except ValueError as e:
+            raise ValueError(f"as_of is not a valid ISO date: {as_of!r} ({e})") from e
+    if "consts" in config and not isinstance(config["consts"], dict):
+        raise ValueError(f"[consts] must be a table, got {type(config['consts']).__name__}")
     return config

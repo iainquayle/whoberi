@@ -6,7 +6,7 @@ from pathlib import Path
 from whoberi.accounts import AccountRegistry, AccountType
 from whoberi.types import Entry
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).parent.parent / "examples"
 
 CSV_FIELDS = ["date", "description", "amount"]
 

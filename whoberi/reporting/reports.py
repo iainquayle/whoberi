@@ -13,22 +13,16 @@ from whoberi.types import Entry
 
 def filter_by_period(entries: Iterable[Entry], period: str | None) -> Iterator[Entry]:
     if period is None:
-        yield from entries
-        return
+        return iter(entries)
     start, end = _parse_period(period)
-    for e in entries:
-        if start <= e.date <= end:
-            yield e
+    return (e for e in entries if start <= e.date <= end)
 
 
 def filter_as_of(entries: Iterable[Entry], period: str | None) -> Iterator[Entry]:
     if period is None:
-        yield from entries
-        return
+        return iter(entries)
     _, end = _parse_period(period)
-    for e in entries:
-        if e.date <= end:
-            yield e
+    return (e for e in entries if e.date <= end)
 
 
 def make_context(

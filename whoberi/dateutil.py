@@ -12,14 +12,9 @@ def expand_dates(
 ) -> Iterator[date]:
     """Yield dates from start through min(end, as_of) at the given period."""
     cutoff = min(end, as_of) if end else as_of
-    if period == "monthly":
-        yield from _monthly(start, cutoff)
-    elif period == "semi-monthly":
-        yield from _semi_monthly(start, cutoff)
-    elif period == "weekly":
-        yield from _weekly(start, cutoff)
-    else:
+    if period not in _BUILDERS:
         raise ValueError(f"Unknown period: {period!r}")
+    return _BUILDERS[period](start, cutoff)
 
 
 def _next_month(year: int, month: int) -> tuple[int, int]:
@@ -58,3 +53,6 @@ def _weekly(start: date, cutoff: date) -> Iterator[date]:
     while current <= cutoff:
         yield current
         current += timedelta(weeks=1)
+
+
+_BUILDERS = {"monthly": _monthly, "semi-monthly": _semi_monthly, "weekly": _weekly}

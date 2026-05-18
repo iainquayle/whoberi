@@ -6,11 +6,69 @@ Plain-CSV double-entry bookkeeping driven by Python handler plugins. Your ledger
 
 ## Install
 
+From a local checkout:
+
 ```
 pip install -e .
 ```
 
-Exposes the `whoberi` console script.
+Directly from a git repo:
+
+```
+pip install git+https://github.com/<owner>/whoberi.git
+pip install git+https://github.com/<owner>/whoberi.git@<tag-or-sha>
+```
+
+Either form exposes the `whoberi` console script.
+
+## Quick start
+
+```
+mkdir mybooks && cd mybooks && git init
+```
+
+`config.toml`:
+
+```toml
+[dirs]
+ledgers = "books"
+imports = "imports"
+reports = "reports"
+
+[accounts]
+asset  = ["cash"]
+income = ["sales"]
+```
+
+`books/sales.csv`:
+
+```
+date,amount
+2026-01-15,1000
+```
+
+`books/sales.py`:
+
+```python
+from datetime import date
+from decimal import Decimal
+from whoberi.types import Entry
+
+def process(rows, config, meta):
+    for r in rows:
+        amount = Decimal(r["amount"])
+        yield Entry(
+            date=date.fromisoformat(r["date"]),
+            accounts={"cash": amount, meta.name: -amount},
+        )
+```
+
+```
+whoberi validate           # OK — 1 entries, all balanced.
+whoberi report accounts    # cash $1,000.00 / sales $-1,000.00
+```
+
+See `examples/` for richer handlers (HST split, payroll from config) and custom reporters.
 
 ## Project layout (example)
 
@@ -23,9 +81,10 @@ Exposes the `whoberi` console script.
     bar/
       baz.csv
       baz.py
-  imports/         # [dirs].imports
-  reports/         # [dirs].reports
+  reports/         # [dirs].reports (custom reporter plugins)
 ```
+
+`[dirs].imports` is also reserved (for a future import command); the directory does not need to exist.
 
 - Every `*.csv` under the ledgers directory is a ledger.
 - Each ledger requires a same-stem handler: `foo.csv` ↔ `foo.py` in the same directory. Missing or unpaired files raise an error.
@@ -62,7 +121,7 @@ def process(rows: list[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]
 - Account names: bare hyphen-segmented strings, e.g. `venn-cad`, `hst-collected`. No colon prefix. Type comes from the `[accounts]` registry in `config.toml`.
 - Every account name emitted must appear in `[accounts]`. Unknown names raise `unknown account '<name>'` at validate time. There are no wildcards or defaults; every account must be enumerated.
 - Sign: `+` debit, `−` credit.
-- Reference implementations: `tests/fixtures/`.
+- Reference implementations: `examples/`.
 
 ## config.toml
 
@@ -103,7 +162,26 @@ Store your books in a git repo. `whoberi heal` rewrites CSVs in place (dedup + s
 
 - Handlers are user-supplied; none ship with the package.
 
+## Custom reporters
+
+Drop a `*.py` file into the reports directory. Three module attributes are required:
+
+```python
+NAME = "gst"
+DESCRIPTION = "GST/HST collected vs. paid"
+
+def report(ctx) -> str:
+    collected = -ctx.combined.get("hst-collected", 0)
+    paid = ctx.combined.get("hst-paid", 0)
+    return ctx.render(
+        [("Collected", collected), ("Paid (ITC)", paid), None, ("Net", collected - paid)],
+        title=f"GST/HST{ctx.period_suffix}",
+    )
+```
+
+`ctx.combined` is a `dict[str, Decimal]` of account balances (period-filtered if `--period` was passed); `ctx.render` formats a labelled table. `NAME` cannot be `list` or `all` (CLI sentinels) and cannot shadow a built-in reporter. Invoke via `whoberi report gst`.
+
 ## More
 
-- Reference layout and handlers: `tests/fixtures/`
+- Reference layout and handlers: `examples/`
 - Run tests: `pytest`

@@ -24,9 +24,6 @@ class ReporterContext:
     def sum_type(self, t: AccountType) -> Decimal:
         return sum(self.period_by_type(t).values(), Decimal("0"))
 
-    def sum_type_as_of(self, t: AccountType) -> Decimal:
-        return sum(self.cumulative_by_type(t).values(), Decimal("0"))
-
     def period_by_type(self, t: AccountType) -> dict[str, Decimal]:
         return {n: v for n, v in self.combined.items() if self.registry.type_of(n) == t}
 
@@ -41,11 +38,12 @@ class ReporterContext:
             (len(r[0]) for r in rows if r is not None),
             default=10,
         )
-        lines = [title, "─" * 40]
+        divider_width = label_width + 18  # 2 indent + label + 2 gap + 14 amount
+        lines = [title, "─" * divider_width]
         for row in rows:
             if row is None:
-                lines.append("─" * 40)
+                lines.append("─" * divider_width)
             else:
                 label, amount = row
-                lines.append(f"  {label:<{label_width}}  {self.fmt(amount):>12}")
+                lines.append(f"  {label:<{label_width}}  {self.fmt(amount):>14}")
         return "\n".join(lines)

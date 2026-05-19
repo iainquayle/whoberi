@@ -1,6 +1,6 @@
 """Payroll handler — date-only input, reads salary/deductions from config."""
 from collections.abc import Iterator
-from datetime import date as Date
+from datetime import date
 from decimal import Decimal
 from functools import partial
 
@@ -18,9 +18,9 @@ def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[En
 
 
 def _row_to_entry(row: dict, salary: Decimal, income_tax: Decimal, cpp: Decimal, ei: Decimal, net: Decimal) -> Entry:
-    entry_date = Date.fromisoformat(row["date"].strip())
+    d = date.fromisoformat(row["date"].strip())
     return Entry(
-        date=entry_date,
+        date=d,
         accounts={
             "salary": salary,
             "cra-tax": income_tax,
@@ -28,5 +28,5 @@ def _row_to_entry(row: dict, salary: Decimal, income_tax: Decimal, cpp: Decimal,
             "cra-ei": ei,
             "venn-cad": -net,
         },
-        meta={"description": f"Payroll {entry_date}"},
+        meta={"description": f"Payroll {d}"},
     )

@@ -1,6 +1,7 @@
 import calendar
 import re
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -11,7 +12,12 @@ from whoberi.reporting.reporter_discovery import ReporterDef
 from whoberi.types import Entry
 
 
-Section = tuple[str, list[tuple[str, Decimal]], str, Decimal]   # header, rows, total-label, total
+@dataclass(frozen=True)
+class Section:
+    header: str
+    rows: list[tuple[str, Decimal]]
+    total_label: str
+    total: Decimal
 
 
 def filter_by_period(entries: Iterable[Entry], period: str | None) -> Iterator[Entry]:
@@ -87,21 +93,21 @@ def _period_end_str(period: str | None) -> str | None:
 
 def _render_statement(title: str, sections: list[Section], final: tuple[str, Decimal]) -> str:
     candidates: list[str] = []
-    for _, rows, total_label, _ in sections:
-        candidates.extend(n for n, _ in rows)
-        candidates.append(total_label)
+    for section in sections:
+        candidates.extend(n for n, _ in section.rows)
+        candidates.append(section.total_label)
     candidates.append(final[0])
     label_width = max((len(c) for c in candidates), default=10)
     divider_width = label_width + 20  # 4 indent + label + 2 gap + 14 amount
 
     lines = [title, "─" * divider_width]
-    for i, (header, rows, total_label, total) in enumerate(sections):
+    for i, section in enumerate(sections):
         if i > 0:
             lines.append("")
-        lines.append(f"  {header}")
-        for name, amount in rows:
+        lines.append(f"  {section.header}")
+        for name, amount in section.rows:
             lines.append(f"    {name:<{label_width}}  {fmt_money(amount):>14}")
-        lines.append(f"    {total_label:<{label_width}}  {fmt_money(total):>14}")
+        lines.append(f"    {section.total_label:<{label_width}}  {fmt_money(section.total):>14}")
     lines.append("─" * divider_width)
     final_label, final_amount = final
     lines.append(f"  {final_label:<{label_width + 2}}  {fmt_money(final_amount):>14}")
@@ -118,9 +124,9 @@ def report_pnl(ctx: ReporterContext) -> str:
     end = _period_end_str(ctx.period)
     title = f"Income Statement — for the period ended {end}" if end else "Income Statement — for all entries"
 
-    sections: list[Section] = [
-        ("REVENUE", sorted(revenue_accounts.items()), "Total revenue", revenue_total),
-        ("EXPENSES", sorted(expense_accounts.items()), "Total expenses", expenses_total),
+    sections = [
+        Section("REVENUE", sorted(revenue_accounts.items()), "Total revenue", revenue_total),
+        Section("EXPENSES", sorted(expense_accounts.items()), "Total expenses", expenses_total),
     ]
     return _render_statement(title, sections, ("Net income (loss)", net))
 
@@ -142,10 +148,10 @@ def report_balance(ctx: ReporterContext) -> str:
     end = _period_end_str(ctx.period)
     title = f"Balance Sheet — as at {end}" if end else "Balance Sheet"
 
-    sections: list[Section] = [
-        ("ASSETS", sorted(assets.items()), "Total assets", total_assets),
-        ("LIABILITIES", sorted(liabilities.items()), "Total liabilities", total_liabilities),
-        ("EQUITY", equity_rows, "Total equity", total_equity),
+    sections = [
+        Section("ASSETS", sorted(assets.items()), "Total assets", total_assets),
+        Section("LIABILITIES", sorted(liabilities.items()), "Total liabilities", total_liabilities),
+        Section("EQUITY", equity_rows, "Total equity", total_equity),
     ]
     return _render_statement(
         title, sections, ("Total liabilities & equity", total_liabilities + total_equity)

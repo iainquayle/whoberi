@@ -1,7 +1,7 @@
-import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+from whoberi._plugin import load_module
 from whoberi.types import LedgerMeta
 
 
@@ -45,12 +45,5 @@ def _collect(ledgers_root: Path) -> tuple[set[Path], set[Path]]:
 
 def _load_handler(csv_path: Path, ledgers_root: Path) -> ModuleType:
     handler_path = csv_path.with_suffix(".py")
-    slug = csv_path.relative_to(ledgers_root).with_suffix("").as_posix().replace("/", "_")
-    spec = importlib.util.spec_from_file_location(f"_handler_{slug}", handler_path)
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    except Exception as e:
-        rel = handler_path.relative_to(ledgers_root)
-        raise ValueError(f"Failed to load handler '{rel}': {type(e).__name__}: {e}") from e
-    return module
+    rel = handler_path.relative_to(ledgers_root).as_posix()
+    return load_module(handler_path, "handler", rel)

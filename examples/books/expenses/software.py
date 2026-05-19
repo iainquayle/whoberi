@@ -1,6 +1,6 @@
 """Expense handler — splits amount into pre-tax expense, HST paid, and bank debit."""
 from collections.abc import Iterator
-from datetime import date as Date
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from functools import partial
 
@@ -12,7 +12,7 @@ def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[En
 
 
 def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
-    entry_date = Date.fromisoformat(row["date"].strip())
+    d = date.fromisoformat(row["date"].strip())
     description = row["description"].strip()
     total = Decimal(row["amount"].strip())
     rate = Decimal(str(config["consts"]["tax"]["hst_rate"]))
@@ -20,7 +20,7 @@ def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
     pretax = total - hst
 
     return Entry(
-        date=entry_date,
+        date=d,
         accounts={
             meta.name: pretax,
             "hst-paid": hst,

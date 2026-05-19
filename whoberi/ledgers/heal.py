@@ -1,22 +1,21 @@
 """Heal: sort chronologically, remove duplicate rows. Pure logic + file orchestrator."""
-import csv
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 
 from whoberi.hashing import row_hash
-from whoberi.ledgers.csv_io import write_csv
+from whoberi.ledgers.csv_io import read_csv_with_headers, write_csv
 
 
-def heal(rows: Iterable[dict]) -> tuple[Iterator[dict], list[str]]:
+def heal(rows: Iterable[dict]) -> tuple[list[dict], list[str]]:
     """
     Sort rows by date and remove duplicate rows (by full-row hash).
-    Returns (healed rows iterator, log messages). Empty log means no change.
+    Returns (healed rows, log messages). Empty log means no change.
     Dates must be ISO 8601 (YYYY-MM-DD); other formats raise ValueError.
     """
     materialized = list(rows)
     if not materialized:
-        return iter([]), []
+        return [], []
 
     logs: list[str] = []
     seen: set[str] = set()
@@ -33,7 +32,7 @@ def heal(rows: Iterable[dict]) -> tuple[Iterator[dict], list[str]]:
     if sorted_rows != deduped:
         logs.append(f"re-sorted chronologically ({len(sorted_rows)} rows)")
 
-    return iter(sorted_rows), logs
+    return sorted_rows, logs
 
 
 def _parse_date(row: dict) -> date:
@@ -48,10 +47,7 @@ def heal_file(path: Path) -> list[str]:
     """Read, heal, and rewrite a CSV in place if anything changed. Returns log messages."""
     if not path.exists():
         return []
-    with open(path, newline="") as f:
-        reader = csv.DictReader(f)
-        headers = list(reader.fieldnames or [])
-        rows = list(reader)
+    headers, rows = read_csv_with_headers(path)
     if not headers or not rows:
         return []
     healed, logs = heal(rows)

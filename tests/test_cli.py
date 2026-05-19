@@ -130,6 +130,15 @@ def test_report_rejects_unbalanced_entry(tmp_path):
     assert result.returncode != 0
 
 
+def test_report_list_works_with_broken_handler(tmp_path):
+    """`report list` should only need config + reporters, not a working pipeline."""
+    root = _fixture_copy(tmp_path)
+    (root / "books" / "expenses" / "software.py").write_text("this is not python!!!\n")
+    result = run("report", "list", root=root)
+    assert result.returncode == 0
+    assert "pnl" in result.stdout
+
+
 def test_report_pnl_with_genuinely_unbalanced(tmp_path):
     """Construct an unbalanced entry via a bad handler; report must exit non-zero."""
     root = tmp_path / "root"

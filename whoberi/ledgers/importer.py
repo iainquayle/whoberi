@@ -58,23 +58,18 @@ def _match_rule(description: str, rules: dict[str, str]) -> str | None:
 
 
 def _append_row(row: dict, target_path: Path) -> None:
+    fieldnames = list(row.keys())
+    write_header = True
     if target_path.exists() and target_path.stat().st_size > 0:
         with open(target_path, newline="") as f:
-            existing_header = next(csv.reader(f), None)
-        if existing_header is None:
-            fieldnames = list(row.keys())
-            write_header = True
-        else:
-            if set(existing_header) != set(row.keys()):
-                raise ValueError(
-                    f"{target_path}: column mismatch — existing {existing_header}, "
-                    f"incoming {list(row.keys())}"
-                )
-            fieldnames = existing_header
-            write_header = False
-    else:
-        fieldnames = list(row.keys())
-        write_header = True
+            existing_header = next(csv.reader(f))
+        if set(existing_header) != set(row.keys()):
+            raise ValueError(
+                f"{target_path}: column mismatch — existing {existing_header}, "
+                f"incoming {list(row.keys())}"
+            )
+        fieldnames = existing_header
+        write_header = False
     with open(target_path, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         if write_header:

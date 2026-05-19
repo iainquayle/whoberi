@@ -1,6 +1,6 @@
 """Draws handler — date + amount, equity draw against bank account."""
 from collections.abc import Iterator
-from datetime import date as Date
+from datetime import date
 from decimal import Decimal
 
 from whoberi.types import Entry, LedgerMeta
@@ -11,10 +11,10 @@ def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[En
 
 
 def _row_to_entry(row: dict) -> Entry:
-    entry_date = Date.fromisoformat(row["date"].strip())
+    d = date.fromisoformat(row["date"].strip())
     amount = Decimal(row["amount"].strip())
     return Entry(
-        date=entry_date,
+        date=d,
         accounts={
             "draws": -amount,
             "venn-cad": -amount,

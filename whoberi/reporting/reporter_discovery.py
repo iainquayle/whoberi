@@ -1,8 +1,8 @@
-import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from whoberi._plugin import load_module
 from whoberi.reporting.reporter_context import ReporterContext
 
 RESERVED_REPORT_NAMES = {"list", "all"}
@@ -21,14 +21,7 @@ def load_reporters(reports_dir: Path) -> dict[str, ReporterDef]:
         return {}
     plugins: dict[str, ReporterDef] = {}
     for path in sorted(reports_dir.glob("*.py")):
-        spec = importlib.util.spec_from_file_location(f"_reporter_{path.stem}", path)
-        mod = importlib.util.module_from_spec(spec)
-        try:
-            spec.loader.exec_module(mod)
-        except Exception as e:
-            raise ValueError(
-                f"Failed to load reporter '{path.name}': {type(e).__name__}: {e}"
-            ) from e
+        mod = load_module(path, "reporter", path.name)
         for attr in ("NAME", "DESCRIPTION", "report"):
             if not hasattr(mod, attr):
                 raise ValueError(f"{path}: missing required attribute '{attr}'")

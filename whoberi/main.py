@@ -1,13 +1,14 @@
 import argparse
 import csv
 import sys
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
-from whoberi.ledgers.csv_io import read_csv
+from whoberi.ledgers.csv_io import read_csv, read_csv_headers
 from whoberi.ledgers.handler_discovery import discover
 from whoberi.ledgers.heal import heal_file
 from whoberi.reporting.reporter_context import ReporterContext, fmt_money
@@ -17,7 +18,15 @@ from whoberi.types import Entry
 from whoberi.validate import validate_column_names, validate_entries
 
 
-def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal], AccountRegistry, dict]:
+@dataclass(frozen=True)
+class PipelineResult:
+    entries: list[Entry]
+    combined: dict[str, Decimal]
+    registry: AccountRegistry
+    config: dict
+
+
+def run_pipeline(root: Path) -> PipelineResult:
     config = load_config(root)
     registry = load_registry(config)
     ledgers_root = root / config["dirs"]["ledgers"]
@@ -33,8 +42,12 @@ def run_pipeline(root: Path) -> tuple[list[Entry], dict[str, Decimal], AccountRe
         for entry in handler.process(rows, config, meta):
             entry.meta.setdefault("ledger", ledger_key)
             entries.append(entry)
-    combined = aggregate(entries)
-    return entries, combined, registry, config
+    return PipelineResult(
+        entries=entries,
+        combined=aggregate(entries),
+        registry=registry,
+        config=config,
+    )
 
 
 def heal_ledgers(root: Path) -> list[str]:
@@ -44,6 +57,12 @@ def heal_ledgers(root: Path) -> list[str]:
     for csv_path, _, _ in discover(ledgers_root):
         logs.extend(heal_file(csv_path))
     return logs
+
+
+def _fail_with_errors(errors: list[str]) -> int:
+    for err in errors:
+        print(f"ERROR: {err}", file=sys.stderr)
+    return 1
 
 
 def cmd_discover(root: Path, _args) -> int:
@@ -61,13 +80,11 @@ def cmd_discover(root: Path, _args) -> int:
 
 
 def cmd_validate(root: Path, _args) -> int:
-    entries, _, registry, _ = run_pipeline(root)
-    errors = validate_entries(entries, registry)
+    result = run_pipeline(root)
+    errors = validate_entries(result.entries, result.registry)
     if errors:
-        for err in errors:
-            print(f"ERROR: {err}", file=sys.stderr)
-        return 1
-    n = len(entries)
+        return _fail_with_errors(errors)
+    n = len(result.entries)
     print(f"OK — {n} {'entry' if n == 1 else 'entries'}, all balanced.")
     return 0
 
@@ -82,34 +99,34 @@ def cmd_heal(root: Path, _args) -> int:
 
 
 def cmd_accounts(root: Path, _args) -> int:
-    _, combined, registry, _ = run_pipeline(root)
-    if not combined:
+    result = run_pipeline(root)
+    if not result.combined:
         print("No accounts.")
         return 0
-    width = max(len(k) for k in combined)
-    for account in sorted(combined):
-        print(f"  {account:<{width}}  {fmt_money(combined[account]):>14}")
-    off = check_balance(combined, registry)
+    width = max(len(k) for k in result.combined)
+    for account in sorted(result.combined):
+        print(f"  {account:<{width}}  {fmt_money(result.combined[account]):>14}")
+    off = check_balance(result.combined, result.registry)
     print(f"\n  {'Balance check':<{width}}  {fmt_money(off):>14}")
     return 0
 
 
 def cmd_status(root: Path, _args) -> int:
-    _, combined, registry, _ = run_pipeline(root)
-    ctx = ReporterContext(combined=combined, cumulative=combined, registry=registry, period=None)
+    result = run_pipeline(root)
+    ctx = ReporterContext(
+        combined=result.combined, cumulative=result.combined, registry=result.registry, period=None
+    )
     for t in AccountType:
         total = ctx.sum_type(t)
         print(f"  {t.value.capitalize():<14}  {ctx.fmt(total)}")
-    off = check_balance(combined, registry)
+    off = check_balance(result.combined, result.registry)
     print(f"\n  Balance:          {ctx.fmt(off)}")
     return 0
 
 
 def cmd_report(root: Path, args) -> int:
-    entries, _, registry, config = run_pipeline(root)
-    period = getattr(args, "period", None)
     report_type = args.type
-
+    config = load_config(root)
     custom = load_reporters(root / config["dirs"]["reports"])
     all_reports = build_reporter_registry(BUILTIN_REPORTERS, custom)
 
@@ -123,13 +140,12 @@ def cmd_report(root: Path, args) -> int:
             print(f"  {name:<{width}}  {rd.description}{src}")
         return 0
 
-    validation_errors = validate_entries(entries, registry)
+    result = run_pipeline(root)
+    validation_errors = validate_entries(result.entries, result.registry)
     if validation_errors:
-        for err in validation_errors:
-            print(f"ERROR: {err}", file=sys.stderr)
-        return 1
+        return _fail_with_errors(validation_errors)
 
-    ctx = make_context(entries, registry, period)
+    ctx = make_context(result.entries, result.registry, args.period)
 
     if report_type == "all":
         failed: list[str] = []
@@ -158,9 +174,8 @@ def cmd_add(root: Path, args) -> int:
     if not ledger_path.exists():
         print(f"Ledger not found: {ledger_path}", file=sys.stderr)
         return 1
-    with open(ledger_path, newline="") as f:
-        headers = next(csv.reader(f), None)
-    if headers is None:
+    headers = read_csv_headers(ledger_path)
+    if not headers:
         print(f"Ledger has no header row: {ledger_path}", file=sys.stderr)
         return 1
     if len(args.fields) != len(headers):

@@ -9,15 +9,20 @@ from whoberi.types import Entry
 _COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
+def _entry_label(entry: Entry) -> str:
+    desc = entry.meta.get("description")
+    return f"{entry.date} '{desc}'" if desc else f"{entry.date}"
+
+
 def validate_entry(entry: Entry, registry: AccountRegistry) -> list[str]:
     errors = []
     unknown = [name for name in entry.accounts if not registry.is_known(name)]
     for name in unknown:
-        errors.append(f"{entry.date} '{entry.meta.get('description', '')}': unknown account '{name}'")
+        errors.append(f"{_entry_label(entry)}: unknown account '{name}'")
     if not unknown:
         off = check_balance(entry.accounts, registry)
         if off != 0:
-            errors.append(f"{entry.date} '{entry.meta.get('description', '')}': accounts off by {off}")
+            errors.append(f"{_entry_label(entry)}: accounts off by {off}")
     return errors
 
 
@@ -30,8 +35,7 @@ def validate_entries(entries: Iterable[Entry], registry: AccountRegistry) -> lis
         if h in seen:
             prior = seen[h]
             errors.append(
-                f"Duplicate entry: {entry.date} '{entry.meta.get('description', '')}' "
-                f"(matches entry on {prior.date})"
+                f"Duplicate entry: {_entry_label(entry)} (matches entry on {prior.date})"
             )
         else:
             seen[h] = entry

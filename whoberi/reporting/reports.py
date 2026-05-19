@@ -5,10 +5,13 @@ from datetime import date
 from decimal import Decimal
 
 from whoberi.accounts import AccountRegistry, AccountType
-from whoberi.aggregate import aggregate, check_balance
-from whoberi.reporting.reporter_context import ReporterContext
+from whoberi.aggregate import aggregate
+from whoberi.reporting.reporter_context import ReporterContext, fmt_money
 from whoberi.reporting.reporter_discovery import ReporterDef
 from whoberi.types import Entry
+
+
+Section = tuple[str, list[tuple[str, Decimal]], str, Decimal]   # header, rows, total-label, total
 
 
 def filter_by_period(entries: Iterable[Entry], period: str | None) -> Iterator[Entry]:
@@ -76,63 +79,97 @@ def _month_end(year: int, month: int) -> date:
     return date(year, month, last_day)
 
 
+def _period_end_str(period: str | None) -> str | None:
+    if period is None:
+        return None
+    return _parse_period(period)[1].isoformat()
+
+
+def _render_statement(title: str, sections: list[Section], final: tuple[str, Decimal]) -> str:
+    candidates: list[str] = []
+    for _, rows, total_label, _ in sections:
+        candidates.extend(n for n, _ in rows)
+        candidates.append(total_label)
+    candidates.append(final[0])
+    label_width = max((len(c) for c in candidates), default=10)
+    divider_width = label_width + 20  # 4 indent + label + 2 gap + 14 amount
+
+    lines = [title, "─" * divider_width]
+    for i, (header, rows, total_label, total) in enumerate(sections):
+        if i > 0:
+            lines.append("")
+        lines.append(f"  {header}")
+        for name, amount in rows:
+            lines.append(f"    {name:<{label_width}}  {fmt_money(amount):>14}")
+        lines.append(f"    {total_label:<{label_width}}  {fmt_money(total):>14}")
+    lines.append("─" * divider_width)
+    final_label, final_amount = final
+    lines.append(f"  {final_label:<{label_width + 2}}  {fmt_money(final_amount):>14}")
+    return "\n".join(lines)
+
+
 def report_pnl(ctx: ReporterContext) -> str:
-    revenue = ctx.sum_type(AccountType.INCOME)
-    expenses = ctx.sum_type(AccountType.EXPENSE)
-    net = revenue - expenses
-    return ctx.render(
-        [
-            ("Revenue", revenue),
-            ("Expenses", expenses),
-            None,
-            ("Net", net),
-        ],
-        title=f"P&L{ctx.period_suffix}",
-    )
+    revenue_accounts = ctx.period_by_type(AccountType.INCOME)
+    expense_accounts = ctx.period_by_type(AccountType.EXPENSE)
+    revenue_total = sum(revenue_accounts.values(), Decimal("0"))
+    expenses_total = sum(expense_accounts.values(), Decimal("0"))
+    net = revenue_total - expenses_total
+
+    end = _period_end_str(ctx.period)
+    title = f"Income Statement — for the period ended {end}" if end else "Income Statement — for all entries"
+
+    sections: list[Section] = [
+        ("REVENUE", sorted(revenue_accounts.items()), "Total revenue", revenue_total),
+        ("EXPENSES", sorted(expense_accounts.items()), "Total expenses", expenses_total),
+    ]
+    return _render_statement(title, sections, ("Net income (loss)", net))
 
 
 def report_balance(ctx: ReporterContext) -> str:
-    assets = ctx.sum_type_as_of(AccountType.ASSET)
-    liabilities = ctx.sum_type_as_of(AccountType.LIABILITY)
-    equity = ctx.sum_type_as_of(AccountType.EQUITY)
-    net_income = ctx.sum_type_as_of(AccountType.INCOME) - ctx.sum_type_as_of(AccountType.EXPENSE)
-    check = check_balance(ctx.cumulative, ctx.registry)
-    title = f"Balance Sheet as of end of {ctx.period}" if ctx.period else "Balance Sheet"
-    return ctx.render(
-        [
-            ("Assets", assets),
-            ("Liabilities", liabilities),
-            ("Equity", equity),
-            ("Net income", net_income),
-            None,
-            ("Check (=0)", check),
-        ],
-        title=title,
+    assets = ctx.cumulative_by_type(AccountType.ASSET)
+    liabilities = ctx.cumulative_by_type(AccountType.LIABILITY)
+    equity = ctx.cumulative_by_type(AccountType.EQUITY)
+    income_total = sum(ctx.cumulative_by_type(AccountType.INCOME).values(), Decimal("0"))
+    expense_total = sum(ctx.cumulative_by_type(AccountType.EXPENSE).values(), Decimal("0"))
+    current_earnings = income_total - expense_total
+
+    total_assets = sum(assets.values(), Decimal("0"))
+    total_liabilities = sum(liabilities.values(), Decimal("0"))
+    total_equity = sum(equity.values(), Decimal("0")) + current_earnings
+
+    equity_rows = sorted(equity.items()) + [("Current period earnings", current_earnings)]
+
+    end = _period_end_str(ctx.period)
+    title = f"Balance Sheet — as at {end}" if end else "Balance Sheet"
+
+    sections: list[Section] = [
+        ("ASSETS", sorted(assets.items()), "Total assets", total_assets),
+        ("LIABILITIES", sorted(liabilities.items()), "Total liabilities", total_liabilities),
+        ("EQUITY", equity_rows, "Total equity", total_equity),
+    ]
+    return _render_statement(
+        title, sections, ("Total liabilities & equity", total_liabilities + total_equity)
     )
 
 
 def report_accounts(ctx: ReporterContext) -> str:
-    lines = [f"Accounts{ctx.period_suffix}", "─" * 40]
+    lines = [f"Trial Balance{ctx.period_suffix}", "─" * 40]
     for t in AccountType:
-        accounts = {
-            name: val
-            for name, val in ctx.combined.items()
-            if ctx.registry.type_of(name) == t
-        }
+        accounts = ctx.period_by_type(t)
         if not accounts:
             continue
         lines.append(f"  [{t.value}]")
         width = max(len(n) for n in accounts)
         for name in sorted(accounts):
-            lines.append(f"    {name:<{width}}  {ctx.fmt(accounts[name]):>12}")
+            lines.append(f"    {name:<{width}}  {fmt_money(accounts[name]):>14}")
     return "\n".join(lines)
 
 
 BUILTIN_REPORTERS: dict[str, ReporterDef] = {
     name: ReporterDef(name=name, description=desc, fn=fn, source="built-in")
     for name, desc, fn in [
-        ("accounts", "All accounts by category", report_accounts),
+        ("accounts", "Trial balance — accounts grouped by type, with balances", report_accounts),
         ("balance", "Balance sheet", report_balance),
-        ("pnl", "Profit & Loss", report_pnl),
+        ("pnl", "Income statement (profit & loss)", report_pnl),
     ]
 }

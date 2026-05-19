@@ -65,14 +65,28 @@ def _row_to_entry(row):
     )
 ```
 
-Both amounts are positive: `cash` is an asset (added to the balance), `sales` is income (subtracted). Type rule gives `+1000 − 1000 = 0`. See *Handler contract* below.
+Both amounts are positive: `cash` is an asset (added to the balance), `sales` is income (subtracted). Type rule gives `+1000 − 1000 = 0`. See *Accounting model* below.
 
 ```
-whoberi validate           # OK — 1 entries, all balanced.
-whoberi report accounts    # cash $1,000.00 / sales $1,000.00
+whoberi validate           # OK — 1 entry, all balanced.
+whoberi report accounts    # Trial Balance: cash $1,000.00, sales $1,000.00
 ```
 
 See `examples/` for richer handlers (HST split, payroll from config, `meta.name` to derive the income account from the CSV stem) and custom reporters.
+
+## Accounting model
+
+whoberi is a single-currency double-entry system. The five standard account types — `asset`, `liability`, `equity`, `income`, `expense` — are declared in `config.toml`; together they form your **chart of accounts**. Every account name your handlers emit must appear there.
+
+Each `Entry` is a journal entry: a date plus one or more `(account, amount)` lines. Internally the amounts are stored as signed magnitudes (one column) rather than as separate debit and credit columns — the type of each account fixes its sign in the balance check (asset and expense add; liability, equity, and income subtract). This is mathematically identical to classical double-entry: the per-entry signed sum is zero exactly when total debits equal total credits.
+
+The CLI produces three accountant-facing reports:
+
+- `report pnl` — **Income Statement** (revenue, expenses, net income).
+- `report balance` — **Balance Sheet** (assets, liabilities, equity; current-period earnings are folded into equity as a synthetic row, so Total assets = Total liabilities & equity).
+- `report accounts` — **Trial Balance** (all accounts grouped by type, with balances).
+
+Reports display negative amounts in accountant style — `$(493.36)` rather than `$-493.36`.
 
 ## Project layout (example)
 
@@ -85,10 +99,11 @@ See `examples/` for richer handlers (HST split, payroll from config, `meta.name`
     bar/
       baz.csv
       baz.py
+  imports/         # [dirs].imports (reserved; may be absent)
   reports/         # [dirs].reports (custom reporter plugins)
 ```
 
-`[dirs].imports` is also reserved (for a future import command); the directory does not need to exist.
+`[dirs].imports` is reserved for the bank-CSV importer module; it has no CLI command yet, and the directory does not need to exist.
 
 - Every `*.csv` under the ledgers directory is a ledger.
 - Each ledger requires a same-stem handler: `foo.csv` ↔ `foo.py` in the same directory. Missing or unpaired files raise an error.
@@ -121,16 +136,16 @@ from decimal import Decimal
 def process(rows: list[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]: ...
 ```
 
-- `Entry(date, accounts: dict[str, Decimal])`: values are magnitudes — usually positive. A value is negative only when an account actually *decreased* (e.g. cash paid out, liability paid down).
-- Account names: bare hyphen-segmented strings, e.g. `venn-cad`, `hst-collected`. No colon prefix. Type comes from the `[accounts]` registry in `config.toml`.
-- Every account name emitted must appear in `[accounts]`. Unknown names raise `unknown account '<name>'` at validate time. There are no wildcards or defaults; every account must be enumerated.
-- Balance rule: each account contributes to the per-entry sum with a sign determined by its type — `asset` and `expense` add; `liability`, `equity`, and `income` subtract. The signed sum must be zero. (A $1000 cash sale: `cash` +1000 (asset, added) and `sales` +1000 (income, subtracted) → 0. An expense paid in cash: `software` +100 (expense, added) and `cash` -100 (asset went down, added) → 0.)
+- `Entry(date, accounts: dict[str, Decimal])`: each `(account, amount)` pair is one line of the journal entry. In practice, write positive numbers for accounts that increase and negative numbers for accounts that decrease — the signed-magnitude convention is detailed in *Accounting model* above.
+- Account names: bare hyphen-segmented strings (e.g. `venn-cad`, `hst-collected`). Every name must appear in the `[accounts]` chart of accounts; unknown names raise `unknown account '<name>'` at validate time. There are no wildcards or defaults.
+- Balance rule: the signed sum per entry (asset/expense add; liability/equity/income subtract) must be zero. Examples — a $1,000 cash sale: `cash +1000` (asset, added) and `sales +1000` (income, subtracted) → 0. Software paid in cash: `software +100` (expense, added) and `cash −100` (asset went down, added) → 0.
 - Reference implementations: `examples/`.
 
 ## config.toml
 
 Top-level keys are system-reserved: `accounts`, `as_of`, `consts`, `dirs`. Any other top-level key is an error.
 `[dirs]` is required and names the three per-concern subdirectories (relative to `<root>`).
+`[accounts]` is your **chart of accounts** — every account name your handlers emit must appear here under exactly one of the five standard types.
 Put your own numeric constants under `[consts]` and access them in handlers via `config["consts"][...]`.
 
 ```toml
@@ -160,11 +175,7 @@ ei = 150.00
 
 ## Git
 
-Store your books in a git repo. `whoberi heal` rewrites CSVs in place (dedup + sort by date); commit before running it on real data. Other commands read but never write.
-
-## Caveats
-
-- Handlers are user-supplied; none ship with the package.
+Store your books in a git repo. `heal` and `add` write to ledger CSVs (`heal` rewrites in place to dedup and sort by date; `add` appends a row); commit before running `heal` on real data. All other commands are read-only.
 
 ## Custom reporters
 
@@ -175,7 +186,7 @@ NAME = "gst"
 DESCRIPTION = "GST/HST collected vs. paid"
 
 def report(ctx) -> str:
-    collected = -ctx.combined.get("hst-collected", 0)
+    collected = ctx.combined.get("hst-collected", 0)
     paid = ctx.combined.get("hst-paid", 0)
     return ctx.render(
         [("Collected", collected), ("Paid (ITC)", paid), None, ("Net", collected - paid)],

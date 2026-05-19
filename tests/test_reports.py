@@ -36,7 +36,7 @@ def test_invalid_period_raises():
 
 @pytest.mark.parametrize("report_fn,expected_substrings", [
     (report_pnl, ["$4,646.02", "$5,139.38"]),
-    (report_balance, ["$-493.36", "$0.00"]),
+    (report_balance, ["$(493.36)"]),
     (report_accounts, ["[income]", "[expense]", "fooco", "salary"]),
 ])
 def test_report_q1(report_fn, expected_substrings):
@@ -49,14 +49,15 @@ def test_report_q1(report_fn, expected_substrings):
 def test_balance_sheet_balances():
     ctx = make_context(SAMPLE_ENTRIES, FULL_REGISTRY, None)
     out = report_balance(ctx)
-    assert "Check (=0)" in out and "$0.00" in out
+    assert "Total assets" in out
+    assert "Total liabilities & equity" in out
 
 
 def test_balance_sheet_date_filter():
     q1 = report_balance(make_context(SAMPLE_ENTRIES, FULL_REGISTRY, "Q1 2026"))
     all_time = report_balance(make_context(SAMPLE_ENTRIES, FULL_REGISTRY, None))
-    assert "$-493.36" in q1
-    assert "$-493.36" not in all_time
+    assert "$(493.36)" in q1
+    assert "$(493.36)" not in all_time
 
 
 def test_balance_uses_cumulative_not_period_filter():

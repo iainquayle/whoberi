@@ -4,6 +4,12 @@ from decimal import Decimal
 from whoberi.accounts import AccountRegistry, AccountType
 
 
+def fmt_money(amount: Decimal) -> str:
+    if amount < 0:
+        return f"$({-amount:,.2f})"
+    return f"${amount:,.2f}"
+
+
 @dataclass(frozen=True)
 class ReporterContext:
     combined: dict[str, Decimal]      # entries within period (or all if period is None)
@@ -16,19 +22,19 @@ class ReporterContext:
         return f" — {self.period}" if self.period else ""
 
     def sum_type(self, t: AccountType) -> Decimal:
-        return sum(
-            (v for name, v in self.combined.items() if self.registry.type_of(name) == t),
-            Decimal("0"),
-        )
+        return sum(self.period_by_type(t).values(), Decimal("0"))
 
     def sum_type_as_of(self, t: AccountType) -> Decimal:
-        return sum(
-            (v for name, v in self.cumulative.items() if self.registry.type_of(name) == t),
-            Decimal("0"),
-        )
+        return sum(self.cumulative_by_type(t).values(), Decimal("0"))
+
+    def period_by_type(self, t: AccountType) -> dict[str, Decimal]:
+        return {n: v for n, v in self.combined.items() if self.registry.type_of(n) == t}
+
+    def cumulative_by_type(self, t: AccountType) -> dict[str, Decimal]:
+        return {n: v for n, v in self.cumulative.items() if self.registry.type_of(n) == t}
 
     def fmt(self, amount: Decimal) -> str:
-        return f"${amount:,.2f}"
+        return fmt_money(amount)
 
     def render(self, rows: list[tuple[str, Decimal] | None], title: str) -> str:
         label_width = max(

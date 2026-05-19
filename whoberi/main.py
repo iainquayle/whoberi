@@ -10,7 +10,7 @@ from whoberi.config import load_config
 from whoberi.ledgers.csv_io import read_csv
 from whoberi.ledgers.handler_discovery import discover
 from whoberi.ledgers.heal import heal_file
-from whoberi.reporting.reporter_context import ReporterContext
+from whoberi.reporting.reporter_context import ReporterContext, fmt_money
 from whoberi.reporting.reporter_discovery import build_reporter_registry, load_reporters
 from whoberi.reporting.reports import BUILTIN_REPORTERS, make_context
 from whoberi.types import Entry
@@ -67,7 +67,8 @@ def cmd_validate(root: Path, _args) -> int:
         for err in errors:
             print(f"ERROR: {err}", file=sys.stderr)
         return 1
-    print(f"OK — {len(entries)} entries, all balanced.")
+    n = len(entries)
+    print(f"OK — {n} {'entry' if n == 1 else 'entries'}, all balanced.")
     return 0
 
 
@@ -87,9 +88,9 @@ def cmd_accounts(root: Path, _args) -> int:
         return 0
     width = max(len(k) for k in combined)
     for account in sorted(combined):
-        print(f"  {account:<{width}}  {combined[account]:>12.2f}")
+        print(f"  {account:<{width}}  {fmt_money(combined[account]):>14}")
     off = check_balance(combined, registry)
-    print(f"\n  {'Balance check':<{width}}  {off:>12.2f}")
+    print(f"\n  {'Balance check':<{width}}  {fmt_money(off):>14}")
     return 0
 
 
@@ -191,7 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("validate", help="Run all validation checks")
     sub.add_parser("heal", help="Sort and deduplicate ledger CSVs in place")
     sub.add_parser("accounts", help="Print combined account balances")
-    sub.add_parser("status", help="Quick summary of balances by account type")
+    sub.add_parser("status", help="Print balances by account type with overall balance check")
 
     report_p = sub.add_parser("report", help="Generate financial reports")
     report_p.add_argument("type", help="Report name, 'list', or 'all'")

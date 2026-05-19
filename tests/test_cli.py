@@ -24,13 +24,13 @@ def run(*args: str, root: Path = FIXTURES) -> subprocess.CompletedProcess:
     (["heal"], "No changes"),
     (["accounts"], "venn-cad"),
     (["status"], "Asset"),
-    (["report", "pnl"], "Revenue"),
+    (["report", "pnl"], "REVENUE"),
     (["report", "gst"], "Collected"),
-    (["report", "balance"], "$0.00"),
-    (["report", "balance", "--period", "Q1 2026"], "as of end of Q1 2026"),
+    (["report", "balance"], "Total assets"),
+    (["report", "balance", "--period", "Q1 2026"], "as at 2026-03-31"),
     (["report", "accounts"], "asset"),
     (["report", "list"], "pnl"),
-    (["report", "all"], "P&L"),
+    (["report", "all"], "Income Statement"),
 ])
 def test_subcommand(args, expected):
     result = run(*args)
@@ -41,7 +41,7 @@ def test_subcommand(args, expected):
 def test_report_pnl_with_period():
     result = run("report", "pnl", "--period", "Q1 2026")
     assert result.returncode == 0
-    assert "Q1 2026" in result.stdout
+    assert "for the period ended 2026-03-31" in result.stdout
 
 
 def test_report_unknown_exits_nonzero():

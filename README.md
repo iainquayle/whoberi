@@ -3,7 +3,7 @@
 Plain-CSV double-entry bookkeeping driven by Python handler plugins. Your ledger logic
 lives in your repo, not inside the tool. Stdlib only, Python 3.11+.
 
-> *Balanced, as all things should be.* - Thanos
+> *Perfectly balanced, as all things should be.* - Thanos
 
 ## Install
 

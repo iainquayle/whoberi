@@ -16,4 +16,14 @@ def load_module(path: Path, kind: str, display: str) -> ModuleType:
         raise ValueError(
             f"Failed to load {kind} '{display}': {type(e).__name__}: {e}"
         ) from e
+    for name in sorted(n for n in dir(module) if n.startswith("_test_")):
+        fn = getattr(module, name)
+        if not callable(fn):
+            continue
+        try:
+            fn()
+        except Exception as e:
+            raise ValueError(
+                f"{kind} '{display}' self-test {name} failed: {type(e).__name__}: {e}"
+            ) from e
     return module

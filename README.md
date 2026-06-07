@@ -232,6 +232,26 @@ def report(ctx) -> str:
 `list` or `all` (CLI sentinels) and cannot shadow a built-in reporter. Invoke via
 `whoberi report gst`.
 
+## Plugin self-tests
+
+Any module-level function in a handler or reporter file whose name starts with
+`_test_` runs at plugin load time — every CLI invocation that touches the plugin.
+One failed `assert` aborts the run with a `ValueError` naming the plugin and the
+test. Tests are optional; plugins without `_test_*` functions behave unchanged.
+
+```python
+def process(rows, config, meta):
+    ...
+
+def _test_basic_split():
+    out = list(process([{"date": "2026-01-15", "amount": "113.00", "description": "x"}],
+                       {"consts": {"tax": {"hst_rate": 0.13}}}, _META))
+    assert out[0].accounts["hst-paid"] == Decimal("13.00")
+```
+
+Tests run in sorted order by name. Helpers and constants in the same file are
+unaffected — only the `_test_` prefix triggers execution.
+
 ## More
 
 - Reference layout and handlers: `examples/`

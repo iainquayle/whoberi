@@ -28,3 +28,17 @@ def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
         },
         meta={"description": description},
     )
+
+
+def _test_splits_balance_to_zero():
+    from pathlib import Path
+    cfg = {"consts": {"tax": {"hst_rate": 0.13}}}
+    meta = LedgerMeta(name="software", directory="expenses", path=Path("software.csv"))
+    rows = [{"date": "2026-01-15", "description": "Figma", "amount": "113.00"}]
+    entries = list(process(iter(rows), cfg, meta))
+    assert len(entries) == 1
+    accounts = entries[0].accounts
+    assert accounts["software"] == Decimal("100.00")
+    assert accounts["hst-paid"] == Decimal("13.00")
+    assert accounts["venn-cad"] == Decimal("-113.00")
+    assert sum(accounts.values()) == Decimal("0")

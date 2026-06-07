@@ -147,11 +147,11 @@ whoberi [--root <dir>] <cmd>   # default root = .
 ## Handler contract
 
 ```python
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from whoberi.types import Entry, LedgerMeta
 from decimal import Decimal
 
-def process(rows: list[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]: ...
+def process(rows: Iterable[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]: ...
 ```
 
 - `Entry(date, accounts: dict[str, Decimal])`: each `(account, amount)` pair is one
@@ -236,16 +236,25 @@ def report(ctx) -> str:
 
 Any module-level function in a handler or reporter file whose name starts with
 `_test_` runs at plugin load time — every CLI invocation that touches the plugin.
-One failed `assert` aborts the run with a `ValueError` naming the plugin and the
-test. Tests are optional; plugins without `_test_*` functions behave unchanged.
+Any failure in a `_test_*` (`assert`, accidental `KeyError`, anything) aborts the
+run with a `ValueError` naming the plugin and the test. Tests are optional;
+plugins without `_test_*` functions behave unchanged.
 
 ```python
+from decimal import Decimal
+from pathlib import Path
+from whoberi.types import LedgerMeta
+
 def process(rows, config, meta):
     ...
 
 def _test_basic_split():
-    out = list(process([{"date": "2026-01-15", "amount": "113.00", "description": "x"}],
-                       {"consts": {"tax": {"hst_rate": 0.13}}}, _META))
+    meta = LedgerMeta(name="software", directory="expenses", path=Path("software.csv"))
+    out = list(process(
+        [{"date": "2026-01-15", "amount": "113.00", "description": "x"}],
+        {"consts": {"tax": {"hst_rate": 0.13}}},
+        meta,
+    ))
     assert out[0].accounts["hst-paid"] == Decimal("13.00")
 ```
 

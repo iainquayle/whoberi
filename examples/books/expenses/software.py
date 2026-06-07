@@ -3,6 +3,7 @@ from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from functools import partial
+from pathlib import Path
 
 from whoberi.types import Entry, LedgerMeta
 
@@ -31,7 +32,6 @@ def _row_to_entry(row: dict, config: dict, meta: LedgerMeta) -> Entry:
 
 
 def _test_splits_balance_to_zero():
-    from pathlib import Path
     cfg = {"consts": {"tax": {"hst_rate": 0.13}}}
     meta = LedgerMeta(name="software", directory="expenses", path=Path("software.csv"))
     rows = [{"date": "2026-01-15", "description": "Figma", "amount": "113.00"}]

@@ -44,6 +44,22 @@ def test_handler_with_syntax_error_raises_clear_error(tmp_path):
         discover(tmp_path)
 
 
+@pytest.mark.parametrize("suffix", [".csv", ".tsv", ".psv"])
+def test_discovers_each_supported_extension(tmp_path, suffix):
+    (tmp_path / f"foo{suffix}").write_text("date\n2026-01-01\n")
+    (tmp_path / "foo.py").write_text("def process(rows, config, meta): return iter(())\n")
+    results = discover(tmp_path)
+    assert [r[0] for r in results] == [tmp_path / f"foo{suffix}"]
+
+
+def test_ambiguous_stems_raise(tmp_path):
+    (tmp_path / "foo.csv").write_text("date\n")
+    (tmp_path / "foo.tsv").write_text("date\n")
+    (tmp_path / "foo.py").write_text("def process(rows, config, meta): return iter(())\n")
+    with pytest.raises(ValueError, match="Ambiguous ledger files"):
+        discover(tmp_path)
+
+
 def test_ledger_meta_fields():
     results = discover(BOOKS)
     by_name = {r[2].name: r[2] for r in results}

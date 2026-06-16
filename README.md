@@ -119,10 +119,12 @@ Reports display negative amounts in accountant style — `$(493.36)` rather than
 `[dirs].imports` is reserved for the bank-CSV importer module; it has no CLI command
 yet, and the directory does not need to exist.
 
-- Every `*.csv` under the ledgers directory is a ledger.
+- Every `*.csv`, `*.tsv` (tab-delimited), or `*.psv` (pipe-delimited) under the
+  ledgers directory is a ledger; the extension selects the delimiter.
 - Each ledger requires a same-stem handler: `foo.csv` ↔ `foo.py` in the same directory.
-  Missing or unpaired files raise an error.
-- CSV stem becomes the account namespace: `income/fooco.csv` → `income:fooco`.
+  Missing or unpaired files raise an error. Two ledger files with the same stem
+  but different extensions (e.g. `foo.csv` + `foo.tsv`) are ambiguous and raise.
+- Ledger stem becomes the account namespace: `income/fooco.csv` → `income:fooco`.
 - Directory names are configured in `config.toml` under `[dirs]` (see below).
 
 ## CLI
@@ -135,11 +137,11 @@ whoberi [--root <dir>] <cmd>   # default root = .
 |---|---|
 | `discover` | list ledgers and resolved handler paths |
 | `validate` | run pipeline; check zero-sum / accounts / duplicates; exits non-zero on error |
-| `heal` | sort and deduplicate ledger CSVs in place |
+| `heal` | sort and deduplicate ledger files in place |
 | `accounts` | print aggregated balances + global zero-sum |
 | `status` | print balances by account type + zero-sum check |
 | `report <name>` | run a report; built-ins: `accounts`, `balance`, `pnl`; see `report list` |
-| `add <ledger> <fields...>` | append a row to `<ledger>.csv` in the ledgers directory |
+| `add <ledger> <fields...>` | append a row to `<ledger>` in the ledgers directory (extension resolved automatically) |
 
 `report` accepts `<name>`, `list`, or `all`, plus an optional `--period` filter
 (`"Q1 2026"`, `2026-01`, or `2026`).

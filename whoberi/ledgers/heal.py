@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from whoberi.hashing import row_hash
-from whoberi.ledgers.csv_io import read_csv_with_headers, write_csv
+from whoberi.ledgers.delimited_io import read_rows_with_headers, write_rows
 
 
 def heal(rows: Iterable[dict]) -> tuple[list[dict], list[str]]:
@@ -44,14 +44,14 @@ def _parse_date(row: dict) -> date:
 
 
 def heal_file(path: Path) -> list[str]:
-    """Read, heal, and rewrite a CSV in place if anything changed. Returns log messages."""
+    """Read, heal, and rewrite a ledger in place if anything changed. Returns log messages."""
     if not path.exists():
         return []
-    headers, rows = read_csv_with_headers(path)
+    headers, rows = read_rows_with_headers(path)
     if not headers or not rows:
         return []
     healed, logs = heal(rows)
     if not logs:
         return []
-    write_csv(path, headers, healed)
+    write_rows(path, headers, healed)
     return [f"heal {path.name}: {msg}" for msg in logs]

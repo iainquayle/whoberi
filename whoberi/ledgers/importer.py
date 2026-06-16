@@ -1,10 +1,10 @@
-"""Bank CSV import — match rows to target ledgers via pattern rules. Pure match + IO persist."""
+"""Bank-CSV import — match rows to target ledgers via pattern rules. Pure match + IO persist."""
 import csv
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from whoberi.hashing import row_hash
-from whoberi.ledgers.csv_io import read_csv
+from whoberi.ledgers.delimited_io import DELIMITERS, read_rows, resolve_existing
 
 
 def match_rows(
@@ -26,18 +26,19 @@ def persist_matches(
     ledgers_root: Path,
 ) -> tuple[int, int]:
     """
-    Append matched rows to their target ledger CSVs.
-    Duplicate rows (already present by full-row hash) are skipped.
-    Returns (written, skipped).
+    Append matched rows to their target ledger files.
+    Targets are resolved across supported extensions (.csv, .tsv, .psv); new
+    targets are created as .csv. Duplicate rows (already present by full-row
+    hash) are skipped. Returns (written, skipped).
     """
     existing_hashes: dict[Path, set[str]] = {}
     written = 0
     skipped = 0
     for row, target_ledger in matches:
-        target_path = ledgers_root / (target_ledger + ".csv")
+        target_path = resolve_existing(ledgers_root, target_ledger) or ledgers_root / f"{target_ledger}.csv"
         if target_path not in existing_hashes:
             existing_hashes[target_path] = {
-                row_hash(r) for r in (read_csv(target_path) if target_path.exists() else [])
+                row_hash(r) for r in (read_rows(target_path) if target_path.exists() else [])
             }
         h = row_hash(row)
         if h in existing_hashes[target_path]:
@@ -58,11 +59,12 @@ def _match_rule(description: str, rules: dict[str, str]) -> str | None:
 
 
 def _append_row(row: dict, target_path: Path) -> None:
+    delimiter = DELIMITERS[target_path.suffix]
     fieldnames = list(row.keys())
     write_header = True
     if target_path.exists() and target_path.stat().st_size > 0:
         with open(target_path, newline="") as f:
-            existing_header = next(csv.reader(f))
+            existing_header = next(csv.reader(f, delimiter=delimiter))
         if set(existing_header) != set(row.keys()):
             raise ValueError(
                 f"{target_path}: column mismatch — existing {existing_header}, "
@@ -71,7 +73,7 @@ def _append_row(row: dict, target_path: Path) -> None:
         fieldnames = existing_header
         write_header = False
     with open(target_path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=delimiter)
         if write_header:
             writer.writeheader()
         writer.writerow(row)

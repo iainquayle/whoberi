@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from whoberi.ledgers.csv_io import read_csv
+from whoberi.ledgers.delimited_io import read_rows
 from whoberi.ledgers.heal import heal, heal_file
 from tests.conftest import CSV_FIELDS, write_csv
 
@@ -76,7 +76,7 @@ def test_heal_file_writes_when_changed(tmp_path):
     ])
     logs = heal_file(path)
     assert logs and "sorted" in logs[0]
-    result = list(read_csv(path))
+    result = list(read_rows(path))
     assert [r["date"] for r in result] == ["2026-01-01", "2026-02-01"]
 
 

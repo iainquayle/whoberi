@@ -8,7 +8,7 @@ from pathlib import Path
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
-from whoberi.ledgers.csv_io import read_csv, read_csv_headers
+from whoberi.ledgers.delimited_io import DELIMITERS, read_headers, read_rows, resolve_existing
 from whoberi.ledgers.handler_discovery import discover
 from whoberi.ledgers.heal import heal_file
 from whoberi.reporting.reporter_context import ReporterContext, fmt_money
@@ -32,13 +32,13 @@ def run_pipeline(root: Path) -> PipelineResult:
     ledgers_root = root / config["dirs"]["ledgers"]
     ledgers = discover(ledgers_root)
     entries: list[Entry] = []
-    for csv_path, handler, meta in ledgers:
-        rows = list(read_csv(csv_path))
+    for ledger_path, handler, meta in ledgers:
+        rows = list(read_rows(ledger_path))
         if rows:
             bad_cols = validate_column_names(rows[0].keys())
             if bad_cols:
-                raise ValueError(f"{csv_path}: invalid column names: {bad_cols}")
-        ledger_key = str(csv_path.relative_to(ledgers_root).with_suffix(""))
+                raise ValueError(f"{ledger_path}: invalid column names: {bad_cols}")
+        ledger_key = str(ledger_path.relative_to(ledgers_root).with_suffix(""))
         for entry in handler.process(rows, config, meta):
             entry.meta.setdefault("ledger", ledger_key)
             entries.append(entry)
@@ -54,8 +54,8 @@ def heal_ledgers(root: Path) -> list[str]:
     config = load_config(root)
     ledgers_root = root / config["dirs"]["ledgers"]
     logs: list[str] = []
-    for csv_path, _, _ in discover(ledgers_root):
-        logs.extend(heal_file(csv_path))
+    for ledger_path, _, _ in discover(ledgers_root):
+        logs.extend(heal_file(ledger_path))
     return logs
 
 
@@ -72,10 +72,10 @@ def cmd_discover(root: Path, _args) -> int:
     if not ledgers:
         print("No ledgers found.")
         return 0
-    print(f"{'CSV':<40} {'Handler':<40}")
+    print(f"{'Ledger':<40} {'Handler':<40}")
     print("─" * 80)
-    for csv_path, handler, _meta in ledgers:
-        print(f"{str(csv_path.relative_to(root)):<40} {str(Path(handler.__file__).relative_to(root)):<40}")
+    for ledger_path, handler, _meta in ledgers:
+        print(f"{str(ledger_path.relative_to(root)):<40} {str(Path(handler.__file__).relative_to(root)):<40}")
     return 0
 
 
@@ -170,11 +170,11 @@ def cmd_report(root: Path, args) -> int:
 def cmd_add(root: Path, args) -> int:
     config = load_config(root)
     ledgers_root = root / config["dirs"]["ledgers"]
-    ledger_path = ledgers_root / (args.ledger + ".csv")
-    if not ledger_path.exists():
-        print(f"Ledger not found: {ledger_path}", file=sys.stderr)
+    ledger_path = resolve_existing(ledgers_root, args.ledger)
+    if ledger_path is None:
+        print(f"Ledger not found: {args.ledger}", file=sys.stderr)
         return 1
-    headers = read_csv_headers(ledger_path)
+    headers = read_headers(ledger_path)
     if not headers:
         print(f"Ledger has no header row: {ledger_path}", file=sys.stderr)
         return 1
@@ -185,7 +185,7 @@ def cmd_add(root: Path, args) -> int:
         )
         return 1
     with open(ledger_path, "a", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, delimiter=DELIMITERS[ledger_path.suffix])
         writer.writerow(args.fields)
     print(f"Added row to {ledger_path.relative_to(ledgers_root)}")
     return 0
@@ -203,9 +203,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("discover", help="List detected CSVs and resolved handlers")
+    sub.add_parser("discover", help="List detected ledgers and resolved handlers")
     sub.add_parser("validate", help="Run all validation checks")
-    sub.add_parser("heal", help="Sort and deduplicate ledger CSVs in place")
+    sub.add_parser("heal", help="Sort and deduplicate ledger files in place")
     sub.add_parser("accounts", help="Print combined account balances")
     sub.add_parser("status", help="Print balances by account type with overall balance check")
 
@@ -213,8 +213,11 @@ def build_parser() -> argparse.ArgumentParser:
     report_p.add_argument("type", help="Report name, 'list', or 'all'")
     report_p.add_argument("--period", help="Period: \"Q1 2026\", 2026-01, 2026")
 
-    add_p = sub.add_parser("add", help="Append a row to a ledger CSV")
-    add_p.add_argument("ledger", help="Ledger path relative to the ledgers directory (without .csv)")
+    add_p = sub.add_parser("add", help="Append a row to a ledger file")
+    add_p.add_argument(
+        "ledger",
+        help="Ledger path relative to the ledgers directory (without extension)",
+    )
     add_p.add_argument("fields", nargs="+", help="Field values to append")
 
     return parser

@@ -8,7 +8,7 @@ from pathlib import Path
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
-from whoberi.ledgers.delimited_io import DELIMITERS, read_headers, read_rows, resolve_existing
+from whoberi.ledgers.delimited_io import delimiter_for, read_headers, read_rows, resolve_existing
 from whoberi.ledgers.handler_discovery import discover
 from whoberi.ledgers.heal import heal_file
 from whoberi.reporting.reporter_context import ReporterContext, fmt_money
@@ -185,7 +185,7 @@ def cmd_add(root: Path, args) -> int:
         )
         return 1
     with open(ledger_path, "a", newline="") as f:
-        writer = csv.writer(f, delimiter=DELIMITERS[ledger_path.suffix])
+        writer = csv.writer(f, delimiter=delimiter_for(ledger_path))
         writer.writerow(args.fields)
     print(f"Added row to {ledger_path.relative_to(ledgers_root)}")
     return 0

@@ -1,16 +1,14 @@
-import csv
-from pathlib import Path
-
 import pytest
 
+from whoberi.ledgers.delimited_io import DELIMITERS, read_headers, read_rows, write_rows
 from whoberi.ledgers.importer import match_rows, persist_matches
-from tests.conftest import CSV_FIELDS, write_csv
 
 RULES = {
     "AWS": "expenses/software",
     "UBER EATS": "expenses/meals",
     "E-TRANSFER FROM": "income/fooco",
 }
+FIELDS = ["date", "description", "amount"]
 
 
 @pytest.fixture
@@ -61,45 +59,64 @@ def test_match_first_rule_wins():
 
 # --- persist_matches (IO) ---
 
-def test_persist_writes_matched(tmp_root):
+def test_persist_writes_matched_defaults_csv_in_empty_tree(tmp_root):
     matches = [({"date": "2026-01-01", "description": "AWS", "amount": "157.50"}, "expenses/software")]
     written, skipped = persist_matches(matches, tmp_root)
     assert (written, skipped) == (1, 0)
     target = tmp_root / "expenses" / "software.csv"
     assert target.exists()
-    rows = list(csv.DictReader(open(target)))
-    assert rows[0]["description"] == "AWS"
+    assert list(read_rows(target))[0]["description"] == "AWS"
 
 
-def test_persist_skips_duplicates(tmp_root):
+@pytest.mark.parametrize("dominant_ext", sorted(DELIMITERS))
+def test_persist_new_target_adopts_dominant_extension(tmp_root, dominant_ext):
+    """New ledgers conform to the format the user already uses in the tree."""
+    write_rows(tmp_root / "income" / f"fooco{dominant_ext}", FIELDS, [])
+    matches = [({"date": "2026-01-01", "description": "AWS", "amount": "157.50"}, "expenses/software")]
+    persist_matches(matches, tmp_root)
+    assert (tmp_root / "expenses" / f"software{dominant_ext}").exists()
+
+
+@pytest.mark.parametrize("suffix", sorted(DELIMITERS))
+def test_persist_appends_to_existing_format(tmp_root, suffix):
+    """Existing ledgers must be appended in their own format, not coerced to csv."""
+    target = tmp_root / "expenses" / f"software{suffix}"
+    write_rows(target, FIELDS, [{"date": "2026-01-01", "description": "OLD", "amount": "10.00"}])
+    new_row = {"date": "2026-01-02", "description": "AWS", "amount": "157.50"}
+    persist_matches([(new_row, "expenses/software")], tmp_root)
+    descs = [r["description"] for r in read_rows(target)]
+    assert descs == ["OLD", "AWS"]
+
+
+@pytest.mark.parametrize("suffix", sorted(DELIMITERS))
+def test_persist_skips_duplicates(tmp_root, suffix):
+    target = tmp_root / "expenses" / f"software{suffix}"
+    write_rows(target, FIELDS, [])
     row = {"date": "2026-01-01", "description": "AWS", "amount": "157.50"}
     persist_matches([(row, "expenses/software")], tmp_root)
     written, skipped = persist_matches([(row, "expenses/software")], tmp_root)
     assert (written, skipped) == (0, 1)
-    target = tmp_root / "expenses" / "software.csv"
-    assert len(list(csv.DictReader(open(target)))) == 1
+    assert len(list(read_rows(target))) == 1
 
 
-def test_persist_uses_existing_header_order(tmp_root):
+@pytest.mark.parametrize("suffix", sorted(DELIMITERS))
+def test_persist_uses_existing_header_order(tmp_root, suffix):
     """Appending must respect the target's existing column order, not the row dict's."""
-    target = tmp_root / "expenses" / "software.csv"
-    write_csv(target, ["date", "amount", "description"], [
+    target = tmp_root / "expenses" / f"software{suffix}"
+    write_rows(target, ["date", "amount", "description"], [
         {"date": "2026-01-01", "amount": "10.00", "description": "OLD"},
     ])
     row = {"description": "NEW", "amount": "20.00", "date": "2026-01-02"}
     persist_matches([(row, "expenses/software")], tmp_root)
-    with open(target, newline="") as f:
-        reader = csv.reader(f)
-        assert next(reader) == ["date", "amount", "description"]
-        rows = list(reader)
-    assert rows[1] == ["2026-01-02", "20.00", "NEW"]
+    assert read_headers(target) == ["date", "amount", "description"]
+    rows = list(read_rows(target))
+    assert rows[1] == {"date": "2026-01-02", "amount": "20.00", "description": "NEW"}
 
 
-def test_persist_rejects_column_mismatch(tmp_root):
-    target = tmp_root / "expenses" / "software.csv"
-    write_csv(target, ["date", "description", "amount"], [
-        {"date": "2026-01-01", "description": "OLD", "amount": "10.00"},
-    ])
+@pytest.mark.parametrize("suffix", sorted(DELIMITERS))
+def test_persist_rejects_column_mismatch(tmp_root, suffix):
+    target = tmp_root / "expenses" / f"software{suffix}"
+    write_rows(target, FIELDS, [{"date": "2026-01-01", "description": "OLD", "amount": "10.00"}])
     row = {"date": "2026-01-02", "description": "NEW", "amount": "20.00", "extra": "x"}
     with pytest.raises(ValueError, match="column mismatch"):
         persist_matches([(row, "expenses/software")], tmp_root)

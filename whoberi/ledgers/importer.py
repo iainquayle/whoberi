@@ -4,7 +4,12 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from whoberi.hashing import row_hash
-from whoberi.ledgers.delimited_io import DELIMITERS, read_rows, resolve_existing
+from whoberi.ledgers.delimited_io import (
+    delimiter_for,
+    infer_extension,
+    read_rows,
+    resolve_existing,
+)
 
 
 def match_rows(
@@ -28,14 +33,16 @@ def persist_matches(
     """
     Append matched rows to their target ledger files.
     Targets are resolved across supported extensions (.csv, .tsv, .psv); new
-    targets are created as .csv. Duplicate rows (already present by full-row
+    targets adopt the extension dominant under `ledgers_root` (falling back to
+    .csv if the tree is empty). Duplicate rows (already present by full-row
     hash) are skipped. Returns (written, skipped).
     """
     existing_hashes: dict[Path, set[str]] = {}
+    default_ext = infer_extension(ledgers_root)
     written = 0
     skipped = 0
     for row, target_ledger in matches:
-        target_path = resolve_existing(ledgers_root, target_ledger) or ledgers_root / f"{target_ledger}.csv"
+        target_path = resolve_existing(ledgers_root, target_ledger) or ledgers_root / f"{target_ledger}{default_ext}"
         if target_path not in existing_hashes:
             existing_hashes[target_path] = {
                 row_hash(r) for r in (read_rows(target_path) if target_path.exists() else [])
@@ -59,7 +66,7 @@ def _match_rule(description: str, rules: dict[str, str]) -> str | None:
 
 
 def _append_row(row: dict, target_path: Path) -> None:
-    delimiter = DELIMITERS[target_path.suffix]
+    delimiter = delimiter_for(target_path)
     fieldnames = list(row.keys())
     write_header = True
     if target_path.exists() and target_path.stat().st_size > 0:

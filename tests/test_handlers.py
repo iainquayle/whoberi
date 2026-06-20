@@ -110,23 +110,23 @@ def test_draws_handler():
 
 # --- Recurring expense handler ---
 
-@pytest.mark.parametrize("rows,config_extra,expected_dates", [
+@pytest.mark.parametrize("rows,as_of,expected_dates", [
     (
         [{"date": "2026-01-01", "end-date": "2026-03-01", "period": "monthly",
           "description": "AWS", "amount": "157.50"}],
-        {"as_of": "2026-12-31"},
+        "2026-12-31",
         [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)],
     ),
     (
         [{"date": "2026-01-01", "end-date": "", "period": "monthly",
           "description": "AWS", "amount": "157.50"}],
-        {"as_of": "2026-03-15"},
+        "2026-03-15",
         [date(2026, 1, 1), date(2026, 2, 1), date(2026, 3, 1)],
     ),
 ])
-def test_recurring_expense_handler_expands_dates(rows, config_extra, expected_dates):
+def test_recurring_expense_handler_expands_dates(rows, as_of, expected_dates):
     handler = load_handler("expenses/recurring/recurring.py")
-    config = {**CONFIG, **config_extra}
+    config = {**CONFIG, "consts": {**CONFIG["consts"], "as_of": as_of}}
     entries = list(handler.process(iter(rows), config, make_meta("recurring", "expenses"), Books({})))
     assert [e.date for e in entries] == expected_dates
     assert all(is_balanced(e, FULL_REGISTRY) for e in entries)

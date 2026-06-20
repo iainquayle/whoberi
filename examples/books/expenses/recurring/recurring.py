@@ -11,8 +11,7 @@ from whoberi.types import Entry, LedgerMeta
 
 
 def process(rows: Iterator[dict], config: dict, meta: LedgerMeta, books: Books) -> Iterator[Entry]:
-    as_of_str = config.get("as_of")
-    as_of = date.fromisoformat(as_of_str) if as_of_str else date.today()
+    as_of = date.fromisoformat(config["consts"]["as_of"])
     return chain.from_iterable(map(partial(_expand_row, config=config, as_of=as_of, meta=meta), rows))
 
 

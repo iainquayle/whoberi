@@ -10,6 +10,9 @@ equity    = ["draws", "retained-earnings"]
 income    = ["fooco", "barco"]
 expense   = ["salary", "software", "recurring"]
 
+[consts]
+as_of = "2026-12-31"        # reference date handlers use (e.g. recurring expansion cutoff)
+
 [consts.tax]
 hst_rate = 0.13
 

@@ -190,14 +190,14 @@ def process(rows, config, meta, books):
 
 ## config.toml
 
-Top-level keys are system-reserved: `accounts`, `as_of`, `consts`, `dirs`. Any other
+Top-level keys are system-reserved: `accounts`, `consts`, `dirs`. Any other
 top-level key is an error.
 `[dirs]` is required and names the three per-concern subdirectories (relative to
 `<root>`).
 `[accounts]` is your **chart of accounts** — every account name your handlers emit
 must appear here under exactly one of the five standard types.
-Put your own numeric constants under `[consts]` and access them in handlers via
-`config["consts"][...]`.
+Put your own constants under `[consts]` — numbers, dates, anything a handler needs
+(e.g. a reference `as_of` date) — and access them via `config["consts"][...]`.
 
 ```toml
 [dirs]
@@ -212,8 +212,8 @@ equity    = ["draws", "retained-earnings"]
 income    = ["fooco", "barco"]
 expense   = ["salary", "software", "recurring"]
 
-# optional; pins "today" for handlers that need a reference date
-as_of = "2026-01-01"
+[consts]
+as_of = "2026-12-31"   # reference date some handlers use (e.g. recurring expansion)
 
 [consts.tax]
 hst_rate = 0.13

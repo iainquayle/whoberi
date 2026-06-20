@@ -4,10 +4,11 @@ from datetime import date
 from decimal import Decimal
 from functools import partial
 
+from whoberi.ledgers.books import Books
 from whoberi.types import Entry, LedgerMeta
 
 
-def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]:
+def process(rows: Iterator[dict], config: dict, meta: LedgerMeta, books: Books) -> Iterator[Entry]:
     return map(partial(_row_to_entry, meta=meta), rows)
 
 

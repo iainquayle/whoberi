@@ -55,7 +55,7 @@ from datetime import date
 from decimal import Decimal
 from whoberi.types import Entry
 
-def process(rows, config, meta):
+def process(rows, config, meta, books):
     return map(_row_to_entry, rows)
 
 def _row_to_entry(row):
@@ -150,10 +150,11 @@ whoberi [--root <dir>] <cmd>   # default root = .
 
 ```python
 from collections.abc import Iterable, Iterator
+from whoberi.ledgers.books import Books
 from whoberi.types import Entry, LedgerMeta
 from decimal import Decimal
 
-def process(rows: Iterable[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]: ...
+def process(rows: Iterable[dict], config: dict, meta: LedgerMeta, books: Books) -> Iterator[Entry]: ...
 ```
 
 - `Entry(date, accounts: dict[str, Decimal])`: each `(account, amount)` pair is one
@@ -168,6 +169,24 @@ def process(rows: Iterable[dict], config: dict, meta: LedgerMeta) -> Iterator[En
   and `sales +1000` (income, subtracted) → 0. Software paid in cash: `software +100`
   (expense, added) and `cash −100` (asset went down, added) → 0.
 - Reference implementations: `examples/`.
+
+### Reading another book
+
+`books.rows(stem)` streams another ledger's *source rows* by its ledgers-relative
+stem (the same key used as the `ledger` tag, e.g. `income/fooco`):
+
+```python
+def process(rows, config, meta, books):
+    total = sum(Decimal(r["amount"]) for r in books.rows("income/fooco"))
+    ...
+```
+
+- It reads raw **source rows, not computed entries** — so it is order-independent
+  (no dependency on which ledger ran first). `books.names()` lists available stems.
+- Streaming and uncached: holds paths only, never contents, so memory stays flat.
+  Re-iterate by calling `books.rows(...)` again (re-reads the file); call
+  `list(books.rows(...))` to materialize when you need multiple passes.
+- An unknown stem raises `KeyError`, listing the available books.
 
 ## config.toml
 
@@ -245,9 +264,10 @@ plugins without `_test_*` functions behave unchanged.
 ```python
 from decimal import Decimal
 from pathlib import Path
+from whoberi.ledgers.books import Books
 from whoberi.types import LedgerMeta
 
-def process(rows, config, meta):
+def process(rows, config, meta, books):
     ...
 
 def _test_basic_split():
@@ -256,6 +276,7 @@ def _test_basic_split():
         [{"date": "2026-01-15", "amount": "113.00", "description": "x"}],
         {"consts": {"tax": {"hst_rate": 0.13}}},
         meta,
+        Books({}),
     ))
     assert out[0].accounts["hst-paid"] == Decimal("13.00")
 ```

@@ -4,10 +4,11 @@ from datetime import date
 from decimal import Decimal
 from functools import partial
 
+from whoberi.ledgers.books import Books
 from whoberi.types import Entry, LedgerMeta
 
 
-def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]:
+def process(rows: Iterator[dict], config: dict, meta: LedgerMeta, books: Books) -> Iterator[Entry]:
     payroll_cfg = config["consts"]["payroll"]
     salary = Decimal(str(payroll_cfg["salary"]))
     income_tax = Decimal(str(payroll_cfg["income_tax"]))

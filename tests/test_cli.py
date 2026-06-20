@@ -153,7 +153,7 @@ def test_report_pnl_with_genuinely_unbalanced(tmp_path):
     (books / "sales.py").write_text(
         "from datetime import date\nfrom decimal import Decimal\n"
         "from whoberi.types import Entry\n"
-        "def process(rows, config, meta):\n"
+        "def process(rows, config, meta, books):\n"
         "    for r in rows:\n"
         "        yield Entry(date=date.fromisoformat(r['date']),\n"
         "                    accounts={'cash': Decimal('100'), 'sales': Decimal('-50')})\n"

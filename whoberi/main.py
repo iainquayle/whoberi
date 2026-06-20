@@ -8,6 +8,7 @@ from pathlib import Path
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
+from whoberi.ledgers.books import Books
 from whoberi.ledgers.delimited_io import delimiter_for, read_headers, read_rows, resolve_existing
 from whoberi.ledgers.handler_discovery import discover
 from whoberi.ledgers.heal import heal_file
@@ -26,20 +27,24 @@ class PipelineResult:
     config: dict
 
 
+def _ledger_key(ledger_path: Path, ledgers_root: Path) -> str:
+    return str(ledger_path.relative_to(ledgers_root).with_suffix(""))
+
+
 def run_pipeline(root: Path) -> PipelineResult:
     config = load_config(root)
     registry = load_registry(config)
     ledgers_root = root / config["dirs"]["ledgers"]
-    ledgers = discover(ledgers_root)
+    keyed = [(p, h, m, _ledger_key(p, ledgers_root)) for p, h, m in discover(ledgers_root)]
+    books = Books({key: p for p, _, _, key in keyed})
     entries: list[Entry] = []
-    for ledger_path, handler, meta in ledgers:
+    for ledger_path, handler, meta, ledger_key in keyed:
         rows = list(read_rows(ledger_path))
         if rows:
             bad_cols = validate_column_names(rows[0].keys())
             if bad_cols:
                 raise ValueError(f"{ledger_path}: invalid column names: {bad_cols}")
-        ledger_key = str(ledger_path.relative_to(ledgers_root).with_suffix(""))
-        for entry in handler.process(rows, config, meta):
+        for entry in handler.process(rows, config, meta, books):
             entry.meta.setdefault("ledger", ledger_key)
             entries.append(entry)
     return PipelineResult(

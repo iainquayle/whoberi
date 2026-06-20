@@ -3,10 +3,11 @@ from collections.abc import Iterator
 from datetime import date
 from decimal import Decimal
 
+from whoberi.ledgers.books import Books
 from whoberi.types import Entry, LedgerMeta
 
 
-def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]:
+def process(rows: Iterator[dict], config: dict, meta: LedgerMeta, books: Books) -> Iterator[Entry]:
     return map(_row_to_entry, rows)
 
 

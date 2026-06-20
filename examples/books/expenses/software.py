@@ -5,10 +5,11 @@ from decimal import Decimal, ROUND_HALF_UP
 from functools import partial
 from pathlib import Path
 
+from whoberi.ledgers.books import Books
 from whoberi.types import Entry, LedgerMeta
 
 
-def process(rows: Iterator[dict], config: dict, meta: LedgerMeta) -> Iterator[Entry]:
+def process(rows: Iterator[dict], config: dict, meta: LedgerMeta, books: Books) -> Iterator[Entry]:
     return map(partial(_row_to_entry, config=config, meta=meta), rows)
 
 
@@ -35,7 +36,7 @@ def _test_splits_balance_to_zero():
     cfg = {"consts": {"tax": {"hst_rate": 0.13}}}
     meta = LedgerMeta(name="software", directory="expenses", path=Path("software.csv"))
     rows = [{"date": "2026-01-15", "description": "Figma", "amount": "113.00"}]
-    entries = list(process(iter(rows), cfg, meta))
+    entries = list(process(iter(rows), cfg, meta, Books({})))
     assert len(entries) == 1
     accounts = entries[0].accounts
     assert accounts["software"] == Decimal("100.00")

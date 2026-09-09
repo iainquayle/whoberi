@@ -7,6 +7,7 @@ import pytest
 from whoberi.aggregate import check_balance
 from whoberi.ledgers.books import Books
 from whoberi.main import run_pipeline
+from tests.conftest import VALID_DIRS
 
 
 def _write(path: Path, text: str) -> None:
@@ -50,8 +51,8 @@ def test_handler_reads_sibling_book_through_pipeline(tmp_path):
     source rows are order-independent.
     """
     (tmp_path / "config.toml").write_text(
-        '[dirs]\nledgers = "books"\nimports = "imports"\nreports = "reports"\n'
-        '[accounts]\nasset = ["cash", "tally"]\nincome = ["sales"]\nequity = ["tally-offset"]\n'
+        VALID_DIRS
+        + '[accounts]\nasset = ["cash", "tally"]\nincome = ["sales"]\nequity = ["tally-offset"]\n'
     )
     books_dir = tmp_path / "books"
     _write(books_dir / "sales.csv", "date,amount\n2026-01-01,100\n2026-02-01,200\n")

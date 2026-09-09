@@ -32,9 +32,11 @@ mkdir mybooks && cd mybooks && git init
 
 ```toml
 [dirs]
-ledgers = "books"
-imports = "imports"
-reports = "reports"
+ledgers    = "books"
+imports    = "imports"
+reports    = "reports"      # reporter plugins
+generators = "generators"   # document generator plugins
+documents  = "documents"    # generated output
 
 [accounts]
 asset  = ["cash"]
@@ -113,11 +115,14 @@ Reports display negative amounts in accountant style — `$(493.36)` rather than
       baz.csv
       baz.py
   imports/         # [dirs].imports (reserved; may be absent)
-  reports/         # [dirs].reports (custom reporter plugins)
+  reports/         # [dirs].reports (custom reporter plugins -> stdout)
+  generators/      # [dirs].generators (document generator plugins -> files)
+  documents/       # [dirs].documents (generated output; gitignore this)
 ```
 
-`[dirs].imports` is reserved for the bank-CSV importer module; it has no CLI command
-yet, and the directory does not need to exist.
+`[dirs]` must name all five directories, but only `ledgers` has to exist: `reports` and
+`generators` yield no plugins when absent, `documents` is created on first write, and
+`imports` is reserved for the bank-CSV importer module (no CLI command yet).
 
 - Every `*.csv`, `*.tsv` (tab-delimited), or `*.psv` (pipe-delimited) under the
   ledgers directory is a ledger; the extension selects the delimiter.
@@ -141,10 +146,13 @@ whoberi [--root <dir>] <cmd>   # default root = .
 | `accounts` | print aggregated balances + global zero-sum |
 | `status` | print balances by account type + zero-sum check |
 | `report <name>` | run a report; built-ins: `accounts`, `balance`, `pnl`; see `report list` |
+| `document <name>` | run a document generator and write its files; see `document list` |
 | `add <ledger> <fields...>` | append a row to `<ledger>` in the ledgers directory (extension resolved automatically) |
 
-`report` accepts `<name>`, `list`, or `all`, plus an optional `--period` filter
-(`"Q1 2026"`, `2026-01`, or `2026`).
+`report` and `document` both accept `<name>`, `list`, or `all`, plus an optional
+`--period` filter (`"Q1 2026"`, `2026-01`, or `2026`). `document` additionally takes
+`--out DIR` (default `[dirs].documents`), `--force` to overwrite existing targets, and
+`--dry-run` to print the paths it would write.
 
 ## Handler contract
 
@@ -192,18 +200,20 @@ def process(rows, config, meta, books):
 
 Top-level keys are system-reserved: `accounts`, `consts`, `dirs`. Any other
 top-level key is an error.
-`[dirs]` is required and names the three per-concern subdirectories (relative to
+`[dirs]` is required and names the five per-concern subdirectories (relative to
 `<root>`).
 `[accounts]` is your **chart of accounts** — every account name your handlers emit
 must appear here under exactly one of the five standard types.
-Put your own constants under `[consts]` — numbers, dates, anything a handler needs
-(e.g. a reference `as_of` date) — and access them via `config["consts"][...]`.
+Put your own constants under `[consts]` — numbers, dates, client addresses, anything a
+handler or generator needs — and access them via `config["consts"][...]`.
 
 ```toml
 [dirs]
-ledgers = "books"
-imports = "imports"
-reports = "reports"
+ledgers    = "books"
+imports    = "imports"
+reports    = "reports"      # reporter plugins
+generators = "generators"   # document generator plugins
+documents  = "documents"    # generated output
 
 [accounts]
 asset     = ["venn-cad"]
@@ -253,9 +263,94 @@ def report(ctx) -> str:
 `list` or `all` (CLI sentinels) and cannot shadow a built-in reporter. Invoke via
 `whoberi report gst`.
 
+## Document generators
+
+Reporters print text; generators write **files** — invoices, spreadsheets, anything you
+hand to someone else. Drop a `*.py` into the generators directory. Same shape as a
+reporter, but the callable is `generate` and it yields `Document`s:
+
+```python
+import csv, io
+from whoberi.documents.types import Document
+
+NAME = "trial-balance"
+DESCRIPTION = "Trial balance as one CSV"
+
+def generate(ctx):
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["account", "type", "balance"])
+    for account in sorted(ctx.combined):
+        writer.writerow([account, ctx.registry.type_of(account).value, ctx.combined[account]])
+    yield Document(name="trial-balance.csv", payload=buf.getvalue())
+```
+
+Run it with `whoberi document trial-balance`. Files land under `[dirs].documents`
+(or `--out DIR`).
+
+`Document.name` is a **relative** path including the extension; the sink resolves it
+under the output root and creates parent directories. `payload` is `str` (written as
+UTF-8) or bytes-like (`bytes` / `bytearray` / `memoryview`). Names that are absolute,
+contain `..`, escape the output root, lack an extension, collide within one run, or
+already exist without `--force` are rejected **before any file is written**.
+
+`ctx` is what a reporter gets — `combined`, `registry`, `period`, `fmt()` — plus the
+entries behind the numbers, which is what one-file-per-transaction needs:
+
+| field | what |
+|---|---|
+| `entries` | period-filtered `Entry` tuple |
+| `cumulative_entries` | entries dated on or before the period end |
+| `config` | the parsed `config.toml`, so `[consts]` is reachable |
+
+and two groupings: `ctx.by_ledger()` and `ctx.by_account(name)`.
+
+### Finding inputs by name
+
+Every entry carries a `ledger` meta tag of `directory/stem` — a row from
+`books/income/fooco.csv` is tagged `income/fooco`. The prefix picks the group, the stem
+names the entity, so a generator finds its inputs instead of hardcoding them:
+
+```python
+for key, entries in ctx.by_ledger().items():
+    directory, _, stem = key.rpartition("/")
+    if directory != "income":
+        continue
+    client = ctx.config["consts"]["clients"][stem]   # KeyError names a missing client
+    ...
+```
+
+Add a client → add a ledger file. Static party details (address, tax number, terms) go
+in `[consts]` keyed by ledger stem; ledger files stay purely temporal. See
+`examples/generators/invoices_html.py`.
+
+### PDFs and spreadsheets
+
+Third-party libraries stay **your** dependency — whoberi never imports them. Either
+idiom works, since both end in something `payload` accepts:
+
+- **Returns bytes**: WeasyPrint `write_pdf()`, reportlab `getpdfdata()`, fpdf2
+  `output()` (a `bytearray`).
+- **Writes into a buffer** — pass `io.BytesIO()`, then `.getvalue()`: openpyxl
+  `wb.save(buf)`, XlsxWriter, python-docx, matplotlib `savefig`.
+
+```python
+from reportlab.pdfgen import canvas   # your books repo, your requirements.txt
+
+buf = io.BytesIO()
+c = canvas.Canvas(buf)
+...
+c.save()
+yield Document(name=f"invoices/{entry.date}-{stem}.pdf", payload=buf.getvalue())
+```
+
+Reading assets next to the plugin (a logo, a font, a template) is fine:
+`Path(__file__).parent / "logo.png"`. Gitignore the documents directory — it is derived
+data, rebuilt on demand.
+
 ## Plugin self-tests
 
-Any module-level function in a handler or reporter file whose name starts with
+Any module-level function in a handler, reporter, or generator file whose name starts with
 `_test_` runs at plugin load time — every CLI invocation that touches the plugin.
 Any failure in a `_test_*` (`assert`, accidental `KeyError`, anything) aborts the
 run with a `ValueError` naming the plugin and the test. Tests are optional;

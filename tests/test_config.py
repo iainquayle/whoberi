@@ -1,13 +1,12 @@
 import pytest
 
 from whoberi.config import load_config
+from tests.conftest import VALID_DIRS
 
 
 def test_missing_config_raises(tmp_path):
     with pytest.raises(FileNotFoundError, match="config.toml not found"):
         load_config(tmp_path)
-
-_VALID_DIRS = '[dirs]\nledgers = "books"\nimports = "imports"\nreports = "reports"\n'
 
 
 @pytest.mark.parametrize("toml_content", [
@@ -33,8 +32,8 @@ def test_missing_dirs_raises(tmp_path, toml_content):
 
 @pytest.mark.parametrize("toml_content", [
     '[dirs]\nledgers = "books"\n',
-    '[dirs]\nledgers = "books"\nimports = "i"\nreports = "r"\nbogus = "x"\n',
-    '[dirs]\nledgers = 7\nimports = "i"\nreports = "r"\n',
+    VALID_DIRS + 'bogus = "x"\n',
+    VALID_DIRS.replace('ledgers = "books"', "ledgers = 7"),
 ])
 def test_dirs_shape_raises(tmp_path, toml_content):
     (tmp_path / "config.toml").write_text(toml_content)
@@ -43,10 +42,10 @@ def test_dirs_shape_raises(tmp_path, toml_content):
 
 
 @pytest.mark.parametrize("toml_content", [
-    _VALID_DIRS,
-    "[accounts]\nasset = []\n" + _VALID_DIRS,
-    "[consts.tax]\nhst_rate = 0.13\n" + _VALID_DIRS,
-    "[accounts]\nasset = []\n\n[consts.tax]\nhst_rate = 0.13\n" + _VALID_DIRS,
+    VALID_DIRS,
+    "[accounts]\nasset = []\n" + VALID_DIRS,
+    "[consts.tax]\nhst_rate = 0.13\n" + VALID_DIRS,
+    "[accounts]\nasset = []\n\n[consts.tax]\nhst_rate = 0.13\n" + VALID_DIRS,
 ])
 def test_valid_config_accepted(tmp_path, toml_content):
     (tmp_path / "config.toml").write_text(toml_content)
@@ -55,7 +54,7 @@ def test_valid_config_accepted(tmp_path, toml_content):
 
 
 @pytest.mark.parametrize("toml_content,match", [
-    ('consts = "string"\n' + _VALID_DIRS, r"\[consts\] must be a table"),
+    ('consts = "string"\n' + VALID_DIRS, r"\[consts\] must be a table"),
 ])
 def test_invalid_optional_keys_raise(tmp_path, toml_content, match):
     (tmp_path / "config.toml").write_text(toml_content)

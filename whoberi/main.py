@@ -8,11 +8,16 @@ from pathlib import Path
 from whoberi.accounts import AccountRegistry, AccountType, load_registry
 from whoberi.aggregate import aggregate, check_balance
 from whoberi.config import load_config
+from whoberi.documents.document_context import make_document_context
+from whoberi.documents.document_discovery import load_generators
+from whoberi.documents.sink import resolve_targets, write_documents
 from whoberi.ledgers.books import Books
 from whoberi.ledgers.delimited_io import delimiter_for, read_headers, read_rows, resolve_existing
 from whoberi.ledgers.handler_discovery import discover
 from whoberi.ledgers.heal import heal_file
-from whoberi.reporting.reporter_context import ReporterContext, fmt_money
+from whoberi.money import fmt_money
+from whoberi.plugins import PluginDef
+from whoberi.reporting.reporter_context import ReporterContext
 from whoberi.reporting.reporter_discovery import build_reporter_registry, load_reporters
 from whoberi.reporting.reports import BUILTIN_REPORTERS, make_context
 from whoberi.types import Entry
@@ -136,14 +141,7 @@ def cmd_report(root: Path, args) -> int:
     all_reports = build_reporter_registry(BUILTIN_REPORTERS, custom)
 
     if report_type == "list":
-        width = max(len(n) for n in all_reports)
-        print(f"  {'Name':<{width}}  Description")
-        print("─" * 60)
-        for name in sorted(all_reports):
-            rd = all_reports[name]
-            src = "" if rd.source == "built-in" else f"  [{Path(rd.source).name}]"
-            print(f"  {name:<{width}}  {rd.description}{src}")
-        return 0
+        return _print_plugin_list(all_reports, "No reports.")
 
     result = run_pipeline(root)
     validation_errors = validate_entries(result.entries, result.registry)
@@ -170,6 +168,62 @@ def cmd_report(root: Path, args) -> int:
 
     print(all_reports[report_type].fn(ctx))
     return 0
+
+
+def _print_plugin_list(plugins: dict[str, PluginDef], empty_message: str) -> int:
+    if not plugins:
+        print(empty_message)
+        return 0
+    width = max(len(n) for n in plugins)
+    print(f"  {'Name':<{width}}  Description")
+    print("─" * 60)
+    for name in sorted(plugins):
+        pd = plugins[name]
+        src = "" if pd.source == "built-in" else f"  [{Path(pd.source).name}]"
+        print(f"  {name:<{width}}  {pd.description}{src}")
+    return 0
+
+
+def cmd_document(root: Path, args) -> int:
+    config = load_config(root)
+    generators = load_generators(root / config["dirs"]["generators"])
+
+    if args.type == "list":
+        return _print_plugin_list(generators, "No document generators.")
+
+    if args.type != "all" and args.type not in generators:
+        available = ", ".join(sorted(generators)) or "none"
+        print(f"Unknown generator '{args.type}' — available: {available}", file=sys.stderr)
+        return 1
+    selected = sorted(generators) if args.type == "all" else [args.type]
+
+    result = run_pipeline(root)
+    validation_errors = validate_entries(result.entries, result.registry)
+    if validation_errors:
+        return _fail_with_errors(validation_errors)
+
+    ctx = make_document_context(result.entries, result.registry, result.config, args.period)
+    out_root = args.out or root / config["dirs"]["documents"]
+
+    failed: list[str] = []
+    for name in selected:
+        try:
+            docs = list(generators[name].fn(ctx))
+            if args.dry_run:
+                paths = [target for _, target in resolve_targets(docs, out_root, args.force)]
+            else:
+                paths = write_documents(docs, out_root, args.force)
+        except (ValueError, KeyError) as e:
+            print(f"ERROR in generator '{name}': {e}", file=sys.stderr)
+            failed.append(name)
+            continue
+        if not paths:
+            print(f"{name}: nothing to emit")
+            continue
+        verb = "would write" if args.dry_run else "wrote"
+        for path in paths:
+            print(f"{verb} {path}")
+    return 1 if failed else 0
 
 
 def cmd_add(root: Path, args) -> int:
@@ -218,6 +272,15 @@ def build_parser() -> argparse.ArgumentParser:
     report_p.add_argument("type", help="Report name, 'list', or 'all'")
     report_p.add_argument("--period", help="Period: \"Q1 2026\", 2026-01, 2026")
 
+    document_p = sub.add_parser("document", help="Generate documents via generator plugins")
+    document_p.add_argument("type", help="Generator name, 'list', or 'all'")
+    document_p.add_argument("--period", help="Period: \"Q1 2026\", 2026-01, 2026")
+    document_p.add_argument("--out", type=Path, help="Output root (default: [dirs].documents)")
+    document_p.add_argument("--force", action="store_true", help="Overwrite existing targets")
+    document_p.add_argument(
+        "--dry-run", action="store_true", help="Print the paths that would be written"
+    )
+
     add_p = sub.add_parser("add", help="Append a row to a ledger file")
     add_p.add_argument(
         "ledger",
@@ -244,6 +307,7 @@ def cli() -> None:
         "accounts": cmd_accounts,
         "status": cmd_status,
         "report": cmd_report,
+        "document": cmd_document,
         "add": cmd_add,
     }
 

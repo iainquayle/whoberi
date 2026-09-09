@@ -2,7 +2,7 @@ import tomllib
 from pathlib import Path
 
 _ALLOWED_KEYS = {"accounts", "consts", "dirs"}
-_DIRS_KEYS = {"ledgers", "imports", "reports"}
+_DIRS_KEYS = {"ledgers", "imports", "reports", "generators", "documents"}
 
 
 def load_config(root: Path) -> dict:

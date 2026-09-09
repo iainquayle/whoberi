@@ -2,6 +2,8 @@
 ledgers = "books"
 imports = "imports"
 reports = "reports"
+generators = "generators"
+documents = "documents"
 
 [accounts]
 asset     = ["venn-cad", "hst-paid"]
@@ -21,3 +23,18 @@ salary = 5000.00
 income_tax = 1000.00
 cpp = 300.00
 ei = 150.00
+
+[consts.company]
+name    = "Venn Consulting Inc."
+address = "100 Example Ave, Toronto ON"
+gst     = "123456789 RT0001"
+
+[consts.clients.fooco]
+name    = "Fooco Industries Ltd."
+address = "1 Foo Street, Ottawa ON"
+terms   = "net 30"
+
+[consts.clients.barco]
+name    = "Barco Systems Corp."
+address = "2 Bar Road, Montreal QC"
+terms   = "net 15"

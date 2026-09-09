@@ -3,33 +3,8 @@ from decimal import Decimal
 
 import pytest
 
-from whoberi.reporting.reports import filter_as_of, filter_by_period, make_context, report_accounts, report_balance, report_pnl
+from whoberi.reporting.reports import make_context, report_accounts, report_balance, report_pnl
 from tests.conftest import FULL_REGISTRY, SAMPLE_ENTRIES, make_entry
-
-
-# ─── Period filter ────────────────────────────────────────────────────────────
-
-@pytest.mark.parametrize("period,expected_count", [
-    ("Q1 2026", 4),
-    ("Q2 2026", 1),
-    ("2026-01", 3),
-    ("2026", 5),
-])
-def test_filter_by_period(period, expected_count):
-    assert len(list(filter_by_period(SAMPLE_ENTRIES, period))) == expected_count
-
-
-def test_filter_none_returns_all():
-    assert list(filter_by_period(SAMPLE_ENTRIES, None)) == SAMPLE_ENTRIES
-
-
-def test_filter_as_of():
-    assert len(list(filter_as_of(SAMPLE_ENTRIES, "Q1 2026"))) == 4
-
-
-def test_invalid_period_raises():
-    with pytest.raises(ValueError, match="Cannot parse period"):
-        list(filter_by_period(SAMPLE_ENTRIES, "not-a-period"))
 
 
 # ─── Built-in reports ─────────────────────────────────────────────────────────

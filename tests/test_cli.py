@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import FIXTURES
+from tests.conftest import FIXTURES, VALID_DIRS
 
 PYTHON = sys.executable
 
@@ -31,6 +31,7 @@ def run(*args: str, root: Path = FIXTURES) -> subprocess.CompletedProcess:
     (["report", "accounts"], "asset"),
     (["report", "list"], "pnl"),
     (["report", "all"], "Income Statement"),
+    (["document", "list"], "trial-balance"),
 ])
 def test_subcommand(args, expected):
     result = run(*args)
@@ -144,8 +145,8 @@ def test_report_pnl_with_genuinely_unbalanced(tmp_path):
     root = tmp_path / "root"
     root.mkdir()
     (root / "config.toml").write_text(
-        '[dirs]\nledgers = "books"\nimports = "imports"\nreports = "reports"\n'
-        '[accounts]\nasset = ["cash"]\nincome = ["sales"]\n'
+        VALID_DIRS
+        + '[accounts]\nasset = ["cash"]\nincome = ["sales"]\n'
     )
     books = root / "books"
     books.mkdir()
@@ -161,3 +162,41 @@ def test_report_pnl_with_genuinely_unbalanced(tmp_path):
     result = run("report", "pnl", root=root)
     assert result.returncode != 0
     assert "off by" in result.stderr
+
+
+# ─── Documents ────────────────────────────────────────────────────────────────
+
+def test_document_writes_into_out_dir(tmp_path):
+    out = tmp_path / "out"
+    result = run("document", "trial-balance", "--out", str(out))
+    assert result.returncode == 0
+    assert (out / "trial-balance.csv").read_text().startswith("account,type,balance")
+
+
+def test_document_dry_run_writes_nothing(tmp_path):
+    out = tmp_path / "out"
+    result = run("document", "all", "--dry-run", "--out", str(out))
+    assert result.returncode == 0
+    assert "would write" in result.stdout
+    assert not out.exists()
+
+
+def test_document_unknown_exits_nonzero(tmp_path):
+    result = run("document", "nonexistent", "--out", str(tmp_path / "out"))
+    assert result.returncode != 0
+    assert "available" in result.stderr
+
+
+def test_document_existing_target_requires_force(tmp_path):
+    out = tmp_path / "out"
+    assert run("document", "trial-balance", "--out", str(out)).returncode == 0
+    again = run("document", "trial-balance", "--out", str(out))
+    assert again.returncode != 0
+    assert "--force" in again.stderr
+    assert run("document", "trial-balance", "--out", str(out), "--force").returncode == 0
+
+
+def test_document_period_names_the_file(tmp_path):
+    out = tmp_path / "out"
+    assert run("document", "trial-balance", "--period", "Q1 2026", "--out", str(out)).returncode == 0
+    assert (out / "trial-balance-Q1-2026.csv").exists()

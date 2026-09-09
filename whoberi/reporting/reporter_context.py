@@ -2,12 +2,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from whoberi.accounts import AccountRegistry, AccountType
-
-
-def fmt_money(amount: Decimal) -> str:
-    if amount < 0:
-        return f"$({-amount:,.2f})"
-    return f"${amount:,.2f}"
+from whoberi.money import fmt_money
 
 
 @dataclass(frozen=True)
